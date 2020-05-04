@@ -1,5 +1,6 @@
 import asyncio
-from typing import List, Union
+from types import TracebackType
+from typing import List, Optional, Type, Union
 
 import aiormq
 import pamqp.specification as spec
@@ -7,7 +8,7 @@ from aiormq.types import DeliveredMessage
 from rtry import CancelledError, retry
 
 
-class AMQPClient:
+class AmqpClient:
     def __init__(self, host: str = "localhost", port: int = 5672, vhost: str = "/") -> None:
         self._host = host
         self._port = port
@@ -85,3 +86,22 @@ class AMQPClient:
 
     def get_consumed_messages(self) -> List[DeliveredMessage]:
         return self._messages
+
+    def __enter__(self) -> None:
+        raise TypeError("Use async with instead")
+
+    def __exit__(self,
+                 exc_type: Optional[Type[BaseException]],
+                 exc_val: Optional[BaseException],
+                 exc_tb: Optional[TracebackType]) -> None:
+        pass
+
+    async def __aenter__(self) -> 'AmqpClient':
+        await self.connect()
+        return self
+
+    async def __aexit__(self,
+                        exc_type: Optional[Type[BaseException]],
+                        exc_val: Optional[BaseException],
+                        exc_tb: Optional[TracebackType]) -> None:
+        await self.close()
