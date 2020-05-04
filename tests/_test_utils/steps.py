@@ -8,6 +8,12 @@ class Context:
     def __exit__(self, *args, **kwargs):
         pass
 
+    async def __aenter__(self):
+        pass
+
+    async def __aexit__(self, *args, **kwargs):
+        pass
+
     def __call__(self, *args, **kwargs):
         return self
 

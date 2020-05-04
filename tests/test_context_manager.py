@@ -15,16 +15,16 @@ async def test_async_context_manager():
         amqp_server = AmqpServer(storage, "localhost", 5674)
         queue = "test_queue"
 
-    with when:
-        async with create_amqp_mock(http_server, amqp_server) as mock:
+    async with given, \
+            create_amqp_mock(http_server, amqp_server) as mock, \
+            AmqpClient(amqp_server.host, amqp_server.port) as amqp_client:
+        with when:
             await mock.client.publish_message(queue, Message("text"))
 
-            async with AmqpClient(amqp_server.host, amqp_server.port) as amqp_client:
-                await amqp_client.consume(queue)
-                messages = await amqp_client.wait_for(message_count=1)
-
-    with then:
-        assert len(messages) == 1
+        with then:
+            await amqp_client.consume(queue)
+            messages = await amqp_client.wait_for(message_count=1)
+            assert len(messages) == 1
 
 
 @pytest.mark.asyncio
