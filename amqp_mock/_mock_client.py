@@ -40,6 +40,7 @@ class AmqpMockClient:
                 assert resp.status == 200, resp
 
     async def publish_message(self, queue_name: str, message: Message) -> None:
+        assert isinstance(message, Message)
         url = f"{self._api_url}/queues/{queue_name}/messages"
         async with self._session_factory() as session:
             async with session.post(url, json=message.to_dict()) as resp:

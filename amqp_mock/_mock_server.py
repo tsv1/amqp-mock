@@ -19,6 +19,14 @@ class AmqpMockServer:
         self._client: Optional[AmqpMockClient] = None
 
     @property
+    def http_server(self) -> HttpServer:
+        return self._http_server
+
+    @property
+    def amqp_server(self) -> AmqpServer:
+        return self._amqp_server
+
+    @property
     def client(self) -> AmqpMockClient:
         if self._client is None:
             self._client = self._client_factory(self._http_server.host, self._http_server.port)
