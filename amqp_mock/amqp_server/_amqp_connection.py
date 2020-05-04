@@ -194,7 +194,7 @@ class AmqpConnection:
 
     async def _send_channel_close_ok(self, channel_id: int, frame_in: spec.Channel.Close) -> None:
         frame_out = spec.Channel.CloseOk()
-        return await self._send_frame(channel_id, frame_out)
+        await self._send_frame(channel_id, frame_out)
 
     async def _send_basic_qos_ok(self, channel_id: int, frame_in: spec.Basic.Qos) -> None:
         frame_out = spec.Basic.QosOk()

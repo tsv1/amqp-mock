@@ -49,3 +49,179 @@ async with create_amqp_mock() as mock:
 ```
 
 Full code available here: [`./examples/consume_example.py`](https://github.com/nikitanovosibirsk/amqp-mock/blob/master/examples/consume_example.py)
+
+## Mock Server
+
+### Publish message
+
+`POST /queues/{queue}/messages`
+
+```json
+{
+    "id": "9e342ac1-eef6-40b1-9eaf-053ee7887968",
+    "value": [1, 2, 3],
+    "exchange": "",
+    "routing_key": "",
+    "properties": null
+}
+```
+
+##### HTTP
+
+```sh
+$ http POST localhost/queues/test_queue/messages \
+    value:='[1, 2, 3]' \
+    exchange=test_exchange
+
+HTTP/1.1 200 OK
+Content-Length: 0
+Content-Type: application/json
+```
+
+##### Python
+
+```python
+from amqp_mock import AmqpMockClient
+
+mock_client = AmqpMockClient()
+message = Message([1, 2, 3], exchange="test_exchange")
+await mock_client.publish_message("test_queue", message)
+```
+
+### Get queue message history
+
+`GET /queues/{queue}/messages/history`
+
+##### HTTP
+
+```sh
+$ http GET localhost/queues/test_queue/messages/history
+HTTP/1.1 200 OK
+Content-Length: 190
+Content-Type: application/json; charset=utf-8
+
+[
+    {
+        "message": {
+            "exchange": "test_exchange",
+            "id": "94459a41-9119-479a-98c9-80bc9dabb719",
+            "properties": null,
+            "routing_key": "",
+            "value": [1, 2, 3]
+        },
+        "queue": "test_queue",
+        "status": "ACKED"
+    }
+]
+```
+
+##### Python
+
+```python
+from amqp_mock import AmqpMockClient
+
+mock_client = AmqpMockClient()
+await mock_client.get_queue_message_history("test_queue")
+# [
+#   <QueuedMessage message=<Message value=[1, 2, 3], exchange='test_exchange', routing_key=''>,
+#                  queue='test_queue',
+#                  status=MessageStatus.ACKED>
+# ]
+```
+
+### Get exchange messages
+
+`GET /exchanges/{exchange}/messages`
+
+##### HTTP
+
+```sh
+$ http GET localhost/exchanges/test_exchange/messages
+
+HTTP/1.1 200 OK
+Content-Length: 423
+Content-Type: application/json; charset=utf-8
+
+[
+    {
+        "exchange": "test_exchange",
+        "id": "63fd1646-bdc1-4baa-9780-e337a9ab109c",
+        "properties": {
+            "app_id": "",
+            "cluster_id": "",
+            "content_encoding": "",
+            "content_type": "",
+            "correlation_id": "",
+            "delivery_mode": 1,
+            "expiration": "",
+            "headers": null,
+            "message_id": "5ec9024c74eca2e419fd7e29f7be846c",
+            "message_type": "",
+            "priority": null,
+            "reply_to": "",
+            "timestamp": null,
+            "user_id": ""
+        },
+        "routing_key": "",
+        "value": [1, 2, 3]
+    }
+]
+```
+
+##### Python
+
+```python
+from amqp_mock import AmqpMockClient
+
+mock_client = AmqpMockClient()
+messages = await mock_client.get_exchange_messages("test_exchange")
+# [
+#   <Message value=[1, 2, 3], exchange='test_exchange', routing_key=''>
+# ]
+```
+
+### Delete exchange messages
+
+`DELETE /exchanges/{exchange}/messages`
+
+##### HTTP
+
+```sh
+$ http DELETE localhost/exchanges/test_exchange/messages
+
+HTTP/1.1 200 OK
+Content-Length: 0
+Content-Type: application/json
+```
+
+##### Python
+
+```python
+from amqp_mock import AmqpMockClient
+
+mock_client = AmqpMockClient()
+await mock_client.delete_exchange_messages("test_exchange")
+```
+
+### Reset
+
+`DELETE /`
+
+##### HTTP
+
+```sh
+$ http DELETE localhost/
+
+HTTP/1.1 200 OK
+Content-Length: 0
+Content-Type: application/json
+```
+
+##### Python
+
+```python
+from amqp_mock import AmqpMockClient
+
+mock_client = AmqpMockClient()
+await mock_client.reset()
+```

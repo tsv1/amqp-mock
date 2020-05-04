@@ -7,14 +7,14 @@ from .amqp_client import AmqpClient
 
 @pytest.fixture()
 def mock_client():
-    return AmqpMockClient("localhost", 8080)
+    return AmqpMockClient(port=8080)
 
 
 @pytest.fixture()
 async def mock_server():
     storage = Storage()
-    http_server = HttpServer(storage, "localhost", 8080)
-    amqp_server = AmqpServer(storage, "localhost", 5674)
+    http_server = HttpServer(storage, port=8080)
+    amqp_server = AmqpServer(storage, port=5674)
     mock = AmqpMockServer(http_server, amqp_server)
 
     await mock.start()

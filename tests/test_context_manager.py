@@ -11,8 +11,8 @@ from ._test_utils.steps import given, then, when
 async def test_async_context_manager():
     with given:
         storage = Storage()
-        http_server = HttpServer(storage, "localhost", 8080)
-        amqp_server = AmqpServer(storage, "localhost", 5674)
+        http_server = HttpServer(storage, port=8080)
+        amqp_server = AmqpServer(storage, port=5674)
         queue = "test_queue"
 
     async with given, \
@@ -31,8 +31,8 @@ async def test_async_context_manager():
 async def test_sync_context_manager():
     with given:
         storage = Storage()
-        http_server = HttpServer(storage, "localhost", 8080)
-        amqp_server = AmqpServer(storage, "localhost", 5674)
+        http_server = HttpServer(storage, port=8080)
+        amqp_server = AmqpServer(storage, port=5674)
 
     with when, raises(Exception) as exception:
         with create_amqp_mock(http_server, amqp_server):
