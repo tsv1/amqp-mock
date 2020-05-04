@@ -36,7 +36,7 @@ class Storage:
         self._history[message.id] = QueuedMessage(message, queue)
 
     async def get_history(self) -> List[QueuedMessage]:
-        return [message for _, message in self._history.items()]
+        return [message for message in self._history.values()][::-1]
 
     async def change_message_status(self, message_id: str, status: MessageStatus) -> None:
         self._history[message_id].set_status(status)

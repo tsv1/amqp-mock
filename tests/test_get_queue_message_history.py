@@ -75,3 +75,22 @@ async def test_get_queue_message_history_nacked(*, mock_server, mock_client, amq
         assert len(history) == 1
         assert isinstance(history[0], QueuedMessage)
         assert history[0].status == MessageStatus.NACKED
+
+
+@pytest.mark.asyncio
+async def test_get_queue_message_history(*, mock_server, mock_client, amqp_client):
+    with given:
+        queue = "test_queue"
+        message1, message2 = "text1", "text2"
+        await mock_client.publish_message(queue, Message(message1))
+        await mock_client.publish_message(queue, Message(message2))
+        await amqp_client.consume(queue)
+        await amqp_client.wait_for(message_count=2)
+
+    with when:
+        history = await mock_client.get_queue_message_history(queue)
+
+    with then:
+        assert len(history) == 2
+        assert history[0].message.value == message2
+        assert history[1].message.value == message1
