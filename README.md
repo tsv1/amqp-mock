@@ -5,6 +5,17 @@
 [![PyPI](https://img.shields.io/pypi/v/amqp-mock.svg)](https://pypi.python.org/pypi/amqp-mock/)
 [![Python Version](https://img.shields.io/pypi/pyversions/amqp-mock.svg)](https://pypi.python.org/pypi/amqp-mock/)
 
+* [Installation](#installation)
+* [Overview](#overview)
+  * [Test Publishing](#test-publishing)
+  * [Test Consuming](#test-consuming)
+* [Mock Server](#mock-server)
+  * [Publish message](#publish-message)
+  * [Get queue message history](#get-queue-message-history)
+  * [Get exchange messages](#get-exchange-messages)
+  * [Delete exchange messages](#delete-exchange-messages)
+  * [Reset](#reset)
+
 ## Installation
 
 ```sh
@@ -66,7 +77,8 @@ Full code available here: [`./examples/consume_example.py`](https://github.com/n
 }
 ```
 
-##### HTTP
+<details><summary>HTTP</summary>
+<p>
 
 ```sh
 $ http POST localhost/queues/test_queue/messages \
@@ -78,7 +90,11 @@ Content-Length: 0
 Content-Type: application/json
 ```
 
-##### Python
+</p>
+</details>
+
+<details><summary>Python</summary>
+<p>
 
 ```python
 from amqp_mock import AmqpMockClient
@@ -88,14 +104,19 @@ message = Message([1, 2, 3], exchange="test_exchange")
 await mock_client.publish_message("test_queue", message)
 ```
 
+</p>
+</details>
+
 ### Get queue message history
 
 `GET /queues/{queue}/messages/history`
 
-##### HTTP
+<details><summary>HTTP</summary>
+<p>
 
 ```sh
 $ http GET localhost/queues/test_queue/messages/history
+
 HTTP/1.1 200 OK
 Content-Length: 190
 Content-Type: application/json; charset=utf-8
@@ -115,7 +136,11 @@ Content-Type: application/json; charset=utf-8
 ]
 ```
 
-##### Python
+</p>
+</details>
+
+<details><summary>Python</summary>
+<p>
 
 ```python
 from amqp_mock import AmqpMockClient
@@ -129,11 +154,15 @@ await mock_client.get_queue_message_history("test_queue")
 # ]
 ```
 
+</p>
+</details>
+
 ### Get exchange messages
 
 `GET /exchanges/{exchange}/messages`
 
-##### HTTP
+<details><summary>HTTP</summary>
+<p>
 
 ```sh
 $ http GET localhost/exchanges/test_exchange/messages
@@ -168,7 +197,11 @@ Content-Type: application/json; charset=utf-8
 ]
 ```
 
-##### Python
+</p>
+</details>
+
+<details><summary>Python</summary>
+<p>
 
 ```python
 from amqp_mock import AmqpMockClient
@@ -180,11 +213,15 @@ messages = await mock_client.get_exchange_messages("test_exchange")
 # ]
 ```
 
+</p>
+</details>
+
 ### Delete exchange messages
 
 `DELETE /exchanges/{exchange}/messages`
 
-##### HTTP
+<details><summary>HTTP</summary>
+<p>
 
 ```sh
 $ http DELETE localhost/exchanges/test_exchange/messages
@@ -194,7 +231,11 @@ Content-Length: 0
 Content-Type: application/json
 ```
 
-##### Python
+</p>
+</details>
+
+<details><summary>Python</summary>
+<p>
 
 ```python
 from amqp_mock import AmqpMockClient
@@ -203,11 +244,15 @@ mock_client = AmqpMockClient()
 await mock_client.delete_exchange_messages("test_exchange")
 ```
 
+</p>
+</details>
+
 ### Reset
 
 `DELETE /`
 
-##### HTTP
+<details><summary>HTTP</summary>
+<p>
 
 ```sh
 $ http DELETE localhost/
@@ -217,7 +262,11 @@ Content-Length: 0
 Content-Type: application/json
 ```
 
-##### Python
+</p>
+</details>
+
+<details><summary>Python</summary>
+<p>
 
 ```python
 from amqp_mock import AmqpMockClient
@@ -225,3 +274,6 @@ from amqp_mock import AmqpMockClient
 mock_client = AmqpMockClient()
 await mock_client.reset()
 ```
+
+</p>
+</details>
