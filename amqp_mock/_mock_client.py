@@ -13,12 +13,17 @@ class AmqpMockClient:
         self._port = port
         self._api_url = f"http://{self._host}:{self._port}"
 
+    async def healthcheck(self) -> None:
+        url = f"{self._api_url}/healthcheck"
+        async with self._session_factory() as session:
+            async with session.get(url) as resp:
+                assert resp.status == 200, resp
+
     async def reset(self) -> None:
         url = f"{self._api_url}/"
         async with self._session_factory() as session:
             async with session.delete(url) as resp:
                 assert resp.status == 200, resp
-                return None
 
     async def get_exchange_messages(self, exchange_name: str) -> List[Message]:
         url = f"{self._api_url}/exchanges/{exchange_name}/messages"
@@ -33,14 +38,12 @@ class AmqpMockClient:
         async with self._session_factory() as session:
             async with session.delete(url) as resp:
                 assert resp.status == 200, resp
-                return None
 
     async def publish_message(self, queue_name: str, message: Message) -> None:
         url = f"{self._api_url}/queues/{queue_name}/messages"
         async with self._session_factory() as session:
             async with session.post(url, json=message.to_dict()) as resp:
                 assert resp.status == 200, resp
-                return None
 
     async def get_queue_message_history(self, queue_name: str) -> List[QueuedMessage]:
         url = f"{self._api_url}/queues/{queue_name}/messages/history"
