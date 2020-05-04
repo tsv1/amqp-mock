@@ -1,2 +1,2 @@
-aiohttp==3.6.2
-pamqp==2.3.0
+aiohttp>=3.5,<4.0
+pamqp>=2.3,<3.0
