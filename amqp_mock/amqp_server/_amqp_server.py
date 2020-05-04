@@ -10,9 +10,7 @@ __all__ = ("AmqpServer",)
 
 
 class AmqpServer:
-    def __init__(self, storage: Storage, *,
-                 host: str = "0.0.0.0",
-                 port: int = 5672,
+    def __init__(self, storage: Storage, host: str = "0.0.0.0", port: int = 5672,
                  server_properties: Optional[Dict[str, Any]] = None) -> None:
         self._storage = storage
         self._host = host
@@ -79,3 +77,7 @@ class AmqpServer:
     async def shutdown(self, timeout: float) -> None:
         for connection in self._connections:
             await connection.close()
+
+    def __repr__(self) -> str:
+        cls_name = self.__class__.__name__
+        return f"<{cls_name} host={self._host!r} port={self._port!r}>"

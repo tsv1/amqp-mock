@@ -1,6 +1,6 @@
 import pytest
 
-from amqp_mock import AmqpMockClient, AmqpServer, HttpServer, Storage, create_amqp_mock
+from amqp_mock import AmqpMockClient, AmqpMockServer, AmqpServer, HttpServer, Storage
 
 from .amqp_client import AMQPClient
 
@@ -13,9 +13,9 @@ def amqp_mock_client():
 @pytest.fixture()
 async def amqp_mock_server():
     storage = Storage()
-    http_server = HttpServer(storage, host="localhost", port=8080)
-    amqp_server = AmqpServer(storage, host="localhost", port=5674)
-    mock = create_amqp_mock(http_server, amqp_server)
+    http_server = HttpServer(storage, "localhost", 8080)
+    amqp_server = AmqpServer(storage, "localhost", 5674)
+    mock = AmqpMockServer(http_server, amqp_server)
 
     yield await mock.start()
 

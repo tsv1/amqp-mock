@@ -49,3 +49,7 @@ class AmqpMockClient:
                 assert resp.status == 200, resp
                 body = await resp.json()
                 return [QueuedMessage.from_dict(x) for x in body]
+
+    def __repr__(self) -> str:
+        cls_name = self.__class__.__name__
+        return f"<{cls_name} host={self._host!r} port={self._port!r}>"

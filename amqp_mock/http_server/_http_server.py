@@ -9,7 +9,7 @@ __all__ = ("HttpServer",)
 
 
 class HttpServer:
-    def __init__(self, storage: Storage, *, host: str = "0.0.0.0", port: int = 80) -> None:
+    def __init__(self, storage: Storage, host: str = "0.0.0.0", port: int = 80) -> None:
         self._storage = storage
         self._host = host
         self._port = port
@@ -55,3 +55,7 @@ class HttpServer:
         queue = request.match_info["queue"]
         messages = await self._storage.get_history()
         return json_response([msg.to_dict() for msg in messages if msg.queue == queue])
+
+    def __repr__(self) -> str:
+        cls_name = self.__class__.__name__
+        return f"<{cls_name} host={self._host!r} port={self._port!r}>"

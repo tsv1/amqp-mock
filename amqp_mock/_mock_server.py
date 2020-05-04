@@ -1,18 +1,28 @@
 from types import TracebackType
-from typing import List, Optional, Type
+from typing import Callable, List, Optional, Type
 
 from aiohttp import web
 
+from ._mock_client import AmqpMockClient
 from .amqp_server import AmqpRunner, AmqpServer, AmqpSite
 from .http_server import HttpRoute, HttpServer
 
 
 class AmqpMockServer:
-    def __init__(self, http_server: HttpServer, amqp_server: AmqpServer) -> None:
+    def __init__(self, http_server: HttpServer, amqp_server: AmqpServer,
+                 client_factory: Callable[[str, int], AmqpMockClient] = AmqpMockClient) -> None:
         self._http_server = http_server
         self._amqp_server = amqp_server
+        self._client_factory = client_factory
         self._http_runner: Optional[web.AppRunner] = None
         self._amqp_runner: Optional[AmqpRunner] = None
+        self._client: Optional[AmqpMockClient] = None
+
+    @property
+    def client(self) -> AmqpMockClient:
+        if self._client is None:
+            self._client = self._client_factory(self._http_server.host, self._http_server.port)
+        return self._client
 
     async def start(self) -> None:
         app = web.Application()
@@ -64,3 +74,7 @@ class AmqpMockServer:
                         exc_val: Optional[BaseException],
                         exc_tb: Optional[TracebackType]) -> None:
         await self.stop()
+
+    def __repr__(self) -> str:
+        cls_name = self.__class__.__name__
+        return f"<{cls_name} http_server={self._http_server} amqp_server={self._amqp_server}>"
