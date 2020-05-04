@@ -14,7 +14,7 @@ def find_dev_required():
 setup(
     name="amqp-mock",
     version="0.1.0",
-    description="",
+    description="Remote AMQP mock",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="Nikita Tsvetkov",
