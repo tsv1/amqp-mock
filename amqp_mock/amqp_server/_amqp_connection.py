@@ -212,14 +212,14 @@ class AmqpConnection:
         return await self._do_nothing(channel_id, frame_in)
 
     async def _handle_content_body(self, channel_id: int, frame_in: ContentBody) -> None:
-        frame_out = spec.Basic.Ack(delivery_tag=self._get_delivery_tag(), multiple=False)
-        await self._send_frame(channel_id, frame_out)
-
         if self._incoming_message:
             self._incoming_message.value = frame_in.value
             if self._on_publish:
                 await self._on_publish(self._incoming_message)
             self._incoming_message = None
+
+        frame_out = spec.Basic.Ack(delivery_tag=self._get_delivery_tag(), multiple=False)
+        await self._send_frame(channel_id, frame_out)
 
     async def _handle_consume(self, channel_id: int, frame_in: spec.Basic.Consume) -> None:
         frame_out = spec.Basic.ConsumeOk(consumer_tag=frame_in.consumer_tag)
