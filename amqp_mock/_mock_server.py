@@ -49,14 +49,17 @@ class AmqpMockServer:
                                 host=self._http_server.host,
                                 port=self._http_server.port)
         await http_site.start()
+        self._http_server.port = self._http_runner.addresses[0][1]
 
         self._amqp_runner = AmqpRunner(self._amqp_server)
         await self._amqp_runner.setup()
 
         amqp_site = AmqpSite(self._amqp_runner,
                              host=self._amqp_server.host,
-                             port=self._amqp_server.port)
+                             port=self._amqp_server.port or None)
         await amqp_site.start()
+
+        self._amqp_server.port = amqp_site.port
 
     async def stop(self) -> None:
         if self._http_runner:

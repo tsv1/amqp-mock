@@ -9,7 +9,7 @@ __all__ = ("HttpServer",)
 
 
 class HttpServer:
-    def __init__(self, storage: Storage, host: str = "0.0.0.0", port: int = 80) -> None:
+    def __init__(self, storage: Storage, host: str = "0.0.0.0", port: int = 0) -> None:
         self._storage = storage
         self._host = host
         self._port = port
@@ -21,6 +21,10 @@ class HttpServer:
     @property
     def port(self) -> int:
         return self._port
+
+    @port.setter
+    def port(self, port: int):
+        self._port = port
 
     @route("GET", "/healthcheck")
     async def healthcheck(self, request: web.Request) -> web.Response:

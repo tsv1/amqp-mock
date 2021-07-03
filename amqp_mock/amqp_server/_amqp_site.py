@@ -15,10 +15,15 @@ class AmqpSite(BaseSite):
         self._host = host
         self._port = port
 
+    @property
+    def port(self):
+        return self._port
+
     async def start(self) -> None:
         await super().start()
         callback = cast(Callable[[StreamReader, StreamWriter], Any], self._runner.server)
         self._server = await start_server(callback, host=self._host, port=self._port)
+        self._port = self._server.sockets[0].getsockname()[1]
 
     def name(self) -> str:
         return "ampq://{host}:{port}".format(host=self._host, port=self._port)
