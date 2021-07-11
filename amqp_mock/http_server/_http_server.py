@@ -23,7 +23,7 @@ class HttpServer:
         return self._port
 
     @port.setter
-    def port(self, port: int):
+    def port(self, port: int) -> None:
         self._port = port
 
     @route("GET", "/healthcheck")

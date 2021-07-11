@@ -41,11 +41,11 @@ class AmqpServer:
         return self._host
 
     @property
-    def port(self) -> int:
+    def port(self) -> Optional[int]:
         return self._port
 
     @port.setter
-    def port(self, value):
+    def port(self, value: int) -> None:
         self._port = value
 
     async def _on_publish(self, message: Message) -> None:
