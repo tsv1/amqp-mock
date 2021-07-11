@@ -1,5 +1,6 @@
 import asyncio
 
+# aiormq==3
 import aiormq
 
 from amqp_mock import create_amqp_mock
