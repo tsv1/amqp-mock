@@ -36,8 +36,8 @@ async with create_amqp_mock() as mock:
     publish_message([1, 2, 3], "exchange")
 
     # 3. Test message has been published
-    history = await mock.client.get_exchange_messages("exchange")
-    assert history[0].value == [1, 2, 3]
+    messages = await mock.client.get_exchange_messages("exchange")
+    assert messages[0].value == [1, 2, 3]
 ```
 
 Full code available here: [`./examples/publish_example.py`](https://github.com/nikitanovosibirsk/amqp-mock/blob/master/examples/publish_example.py)
