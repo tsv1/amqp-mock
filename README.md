@@ -1,15 +1,16 @@
 # AMQP Mock
 
-[![License](https://img.shields.io/github/license/nikitanovosibirsk/amqp-mock.svg)](https://github.com/nikitanovosibirsk/amqp-mock)
-[![Codecov](https://img.shields.io/codecov/c/github/nikitanovosibirsk/amqp-mock/master.svg)](https://codecov.io/gh/nikitanovosibirsk/amqp-mock)
-[![PyPI](https://img.shields.io/pypi/v/amqp-mock.svg)](https://pypi.python.org/pypi/amqp-mock/)
-[![Python Version](https://img.shields.io/pypi/pyversions/amqp-mock.svg)](https://pypi.python.org/pypi/amqp-mock/)
+[![Codecov](https://img.shields.io/codecov/c/github/nikitanovosibirsk/amqp-mock/master.svg?style=flat-square)](https://codecov.io/gh/nikitanovosibirsk/amqp-mock)
+[![PyPI](https://img.shields.io/pypi/v/amqp-mock.svg?style=flat-square)](https://pypi.python.org/pypi/amqp-mock)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/amqp-mock?style=flat-square)](https://pypi.python.org/pypi/amqp-mock)
+[![Python Version](https://img.shields.io/pypi/pyversions/amqp-mock.svg?style=flat-square)](https://pypi.python.org/pypi/amqp-mock)
 
 * [Installation](#installation)
 * [Overview](#overview)
   * [Test Publishing](#test-publishing)
   * [Test Consuming](#test-consuming)
 * [Mock Server](#mock-server)
+  * [Start server](#start-server)
   * [Publish message](#publish-message)
   * [Get queue message history](#get-queue-message-history)
   * [Get exchange messages](#get-exchange-messages)
@@ -62,6 +63,21 @@ async with create_amqp_mock() as mock:
 Full code available here: [`./examples/consume_example.py`](https://github.com/nikitanovosibirsk/amqp-mock/blob/master/examples/consume_example.py)
 
 ## Mock Server
+
+### Start server
+
+```python
+import asyncio
+
+from amqp_mock import create_amqp_mock
+
+
+async def run() -> None:
+    async with create_amqp_mock():
+        await asyncio.Future()
+
+asyncio.run(run())
+```
 
 ### Publish message
 
