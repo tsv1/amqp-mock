@@ -6,7 +6,7 @@ from ._message import Message, QueuedMessage
 
 
 class AmqpMockClient:
-    def __init__(self, host: str = "localhost", port: int = 80, *,
+    def __init__(self, host: str = "localhost", port: int = 8080, *,
                  session_factory: Callable[[], ClientSession] = ClientSession):
         self._session_factory = session_factory
         self._host = host
