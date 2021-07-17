@@ -1,6 +1,6 @@
 from asyncio import start_server
 from asyncio.streams import StreamReader, StreamWriter
-from typing import Any, Callable, cast, Optional
+from typing import Any, Callable, Optional, cast
 
 from aiohttp.web import BaseSite
 
