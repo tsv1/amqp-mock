@@ -69,11 +69,14 @@ Full code available here: [`./examples/consume_example.py`](https://github.com/n
 ```python
 import asyncio
 
-from amqp_mock import create_amqp_mock
+from amqp_mock import AmqpServer, HttpServer, Storage, create_amqp_mock
 
 
 async def run() -> None:
-    async with create_amqp_mock():
+    storage = Storage()
+    http_server = HttpServer(storage, port=8080)
+    amqp_server = AmqpServer(storage, port=5672)
+    async with create_amqp_mock(http_server, amqp_server):
         await asyncio.Future()
 
 asyncio.run(run())
