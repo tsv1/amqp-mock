@@ -10,7 +10,7 @@ __all__ = ("AmqpServer",)
 
 
 class AmqpServer:
-    def __init__(self, storage: Storage, host: str = "0.0.0.0", port: int = 5672,
+    def __init__(self, storage: Storage, host: str = "0.0.0.0", port: Optional[int] = None,
                  server_properties: Optional[Dict[str, Any]] = None) -> None:
         self._storage = storage
         self._host = host
@@ -41,8 +41,12 @@ class AmqpServer:
         return self._host
 
     @property
-    def port(self) -> int:
+    def port(self) -> Optional[int]:
         return self._port
+
+    @port.setter
+    def port(self, value: int) -> None:
+        self._port = value
 
     async def _on_publish(self, message: Message) -> None:
         try:
