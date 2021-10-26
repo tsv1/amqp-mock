@@ -104,7 +104,9 @@ class AmqpConnection:
             await self._send_frame(channel_id, frame_out)
 
             encoded = json.dumps(message.value).encode()
-            header, body = ContentHeader(body_size=len(encoded)), ContentBody(encoded)
+            properties = spec.Basic.Properties(**(message.properties or {}))
+            header = ContentHeader(body_size=len(encoded), properties=properties)
+            body = ContentBody(encoded)
             await self._send_frame(channel_id, header)
             await self._send_frame(channel_id, body)
 

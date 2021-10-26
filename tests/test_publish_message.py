@@ -27,6 +27,25 @@ async def test_publish_single_message(*, mock_server, mock_client, amqp_client):
 
 
 @pytest.mark.asyncio
+async def test_publish_message_with_properties(*, mock_server, mock_client, amqp_client):
+    with given:
+        queue = "test_queue"
+        message = "text"
+        properties = {"content_type": "application/json"}
+
+    with when:
+        await mock_client.publish_message(queue, Message(message, properties=properties))
+
+    with then:
+        await amqp_client.consume(queue)
+        messages = await amqp_client.wait_for(message_count=1)
+
+        assert len(messages) == 1
+        assert messages[0].body == to_binary(message)
+        assert messages[0].header.properties.content_type == properties['content_type']
+
+
+@pytest.mark.asyncio
 async def test_publish_multiple_messages(*, mock_server, mock_client, amqp_client):
     with given:
         queue = "test_queue"
