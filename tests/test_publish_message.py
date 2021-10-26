@@ -46,6 +46,25 @@ async def test_publish_multiple_messages(*, mock_server, mock_client, amqp_clien
 
 
 @pytest.mark.asyncio
+async def test_publish_new_messages_while_consuming(*, mock_server, mock_client, amqp_client):
+    with given:
+        queue = "test_queue"
+        message1, message2 = "text1", "text2"
+        await mock_client.publish_message(queue, Message(message1))
+        await amqp_client.consume(queue)
+        await amqp_client.wait_for(message_count=1)
+
+    with when:
+        await mock_client.publish_message(queue, Message(message2))
+
+    with then:
+        messages = await amqp_client.wait_for(message_count=2)
+        assert len(messages) == 2
+        assert messages[0].body == to_binary(message1)
+        assert messages[1].body == to_binary(message2)
+
+
+@pytest.mark.asyncio
 async def test_publish_message_specific_queue(*, mock_server, mock_client, amqp_client):
     with given:
         queue1, queue2 = "test_queue1", "test_queue2"

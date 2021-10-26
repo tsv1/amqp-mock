@@ -1,6 +1,6 @@
 import json
 import logging
-from asyncio import Task, create_task
+from asyncio import Task, create_task, gather
 from asyncio.streams import StreamReader, StreamWriter
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional, Union
 
@@ -60,6 +60,12 @@ class AmqpConnection:
         return self._delivery_tag
 
     async def close(self) -> None:
+        for consumer_task in self._consumers:
+            consumer_task.cancel()
+
+        await gather(*self._consumers, return_exceptions=True)
+        del self._consumers[:]
+
         self._stream_writer.close()
         await self._stream_writer.wait_closed()
 

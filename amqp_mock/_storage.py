@@ -1,3 +1,4 @@
+from asyncio import Queue
 from collections import OrderedDict
 from typing import AsyncGenerator, Dict, List
 
@@ -7,7 +8,7 @@ from ._message import Message, MessageStatus, QueuedMessage
 class Storage:
     def __init__(self) -> None:
         self._exchanges: Dict[str, List[Message]] = {}
-        self._queues: Dict[str, List[Message]] = {}
+        self._queues: Dict[str, Queue[Message]] = {}
         self._history: Dict[str, QueuedMessage] = OrderedDict()
 
     async def clear(self) -> None:
@@ -31,8 +32,8 @@ class Storage:
 
     async def add_message_to_queue(self, queue: str, message: Message) -> None:
         if queue not in self._queues:
-            self._queues[queue] = []
-        self._queues[queue].insert(0, message)
+            self._queues[queue] = Queue()
+        await self._queues[queue].put(message)
         self._history[message.id] = QueuedMessage(message, queue)
 
     async def get_history(self) -> List[QueuedMessage]:
@@ -44,6 +45,6 @@ class Storage:
     async def get_next_message(self, queue: str) -> AsyncGenerator[Message, None]:
         if queue not in self._queues:
             return
-        while len(self._queues[queue]) > 0:
-            message = self._queues[queue].pop()
-            yield message
+
+        while True:
+            yield await self._queues[queue].get()
