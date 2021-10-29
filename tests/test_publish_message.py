@@ -102,6 +102,23 @@ async def test_publish_message_specific_queue(*, mock_server, mock_client, amqp_
 
 
 @pytest.mark.asyncio
+async def test_publish_to_exchange_with_bound_queue(*, mock_server, amqp_client):
+    with given:
+        exchange = "test_exchange"
+        queue = "test_queue"
+        message = b"text"
+
+    with when:
+        await amqp_client.queue_bind(queue, exchange)
+        await amqp_client.publish(message, exchange)
+        await amqp_client.consume(queue)
+
+    with then:
+        messages = await amqp_client.wait_for(message_count=1)
+        assert len(messages) == 1
+
+
+@pytest.mark.asyncio
 async def test_publish_no_messages(*, mock_server, amqp_client):
     with given:
         queue = "test_queue1"
