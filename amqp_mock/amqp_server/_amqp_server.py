@@ -48,6 +48,9 @@ class AmqpServer:
     def port(self, value: int) -> None:
         self._port = value
 
+    async def _on_bind(self, queue: str, exchange: str, routing_key: str) -> None:
+        await self._storage.bind_queue_to_exchange(queue, exchange, routing_key)
+
     async def _on_publish(self, message: Message) -> None:
         try:
             message.value = json.loads(message.value.decode())
@@ -72,6 +75,7 @@ class AmqpServer:
     def __call__(self, reader: StreamReader, writer: StreamWriter) -> AmqpConnection:
         connection = AmqpConnection(reader, writer, self._on_consume, self._server_properties)
         connection.on_publish(self._on_publish) \
+                  .on_bind(self._on_bind) \
                   .on_ack(self._on_ack) \
                   .on_nack(self._on_nack) \
                   .on_close(self._on_close)

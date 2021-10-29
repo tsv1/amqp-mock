@@ -33,10 +33,15 @@ class AmqpConnection:
         self._incoming_message: Union[Message, None] = None
         self._delivery_tag = 0
         self._on_consume = on_consume
+        self._on_bind: Optional[Callable[[str, str, str], Awaitable[None]]] = None
         self._on_publish: Optional[Callable[[Message], Awaitable[None]]] = None
         self._on_ack: Optional[Callable[[str], Awaitable[None]]] = None
         self._on_nack: Optional[Callable[[str], Awaitable[None]]] = None
         self._on_close: Optional[Callable[['AmqpConnection'], Awaitable[None]]] = None
+
+    def on_bind(self, callback: Callable[[str, str, str], Awaitable[None]]) -> 'AmqpConnection':
+        self._on_bind = callback
+        return self
 
     def on_publish(self, callback: Callable[[Message], Awaitable[None]]) -> 'AmqpConnection':
         self._on_publish = callback
@@ -199,6 +204,9 @@ class AmqpConnection:
         return await self._send_frame(channel_id, frame_out)
 
     async def _send_queue_bind_ok(self, channel_id: int, frame_in: spec.Queue.Bind) -> None:
+        if self._on_bind:
+            await self._on_bind(frame_in.queue, frame_in.exchange, frame_in.routing_key)
+
         frame_out = spec.Queue.BindOk()
         return await self._send_frame(channel_id, frame_out)
 
