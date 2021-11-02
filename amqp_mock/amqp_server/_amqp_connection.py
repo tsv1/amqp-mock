@@ -2,7 +2,18 @@ import json
 import logging
 from asyncio import CancelledError, Task, create_task, gather
 from asyncio.streams import StreamReader, StreamWriter
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Tuple, Union
+from collections import defaultdict
+from typing import (
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    DefaultDict,
+    Dict,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from pamqp import specification as spec
 from pamqp.body import ContentBody
@@ -31,7 +42,8 @@ class AmqpConnection:
         self._consumers: Dict[Tuple[int, str], Task[Any]] = {}
         self._delivered_messages: Dict[int, str] = {}
         self._incoming_message: Union[Message, None] = None
-        self._delivery_tag = 0
+        self._consumer_delivery_tags: DefaultDict[int, int] = defaultdict(int)
+        self._publisher_delivery_tags: DefaultDict[int, int] = defaultdict(int)
         self._on_consume = on_consume
         self._on_bind: Optional[Callable[[str, str, str], Awaitable[None]]] = None
         self._on_declare_queue: Optional[Callable[[str], Awaitable[None]]] = None
@@ -65,9 +77,13 @@ class AmqpConnection:
         self._on_close = callback
         return self
 
-    def _get_delivery_tag(self) -> int:
-        self._delivery_tag += 1
-        return self._delivery_tag
+    def _get_consumer_delivery_tag(self, channel_id: int) -> int:
+        self._consumer_delivery_tags[channel_id] += 1
+        return self._consumer_delivery_tags[channel_id]
+
+    def _get_publisher_delivery_tag(self, channel_id: int) -> int:
+        self._publisher_delivery_tags[channel_id] += 1
+        return self._publisher_delivery_tags[channel_id]
 
     async def _cancel_consumer(self, channel_id: int, consumer_tag: str) -> None:
         consumer_key = (channel_id, consumer_tag)
@@ -122,7 +138,7 @@ class AmqpConnection:
         async for message in self._on_consume(queue_name):
             _logger.debug(f"--> Message {message}")
 
-            delivery_tag = self._get_delivery_tag()
+            delivery_tag = self._get_consumer_delivery_tag(channel_id)
             self._delivered_messages[delivery_tag] = message.id
 
             frame_out = spec.Basic.Deliver(
@@ -264,7 +280,8 @@ class AmqpConnection:
                 await self._on_publish(self._incoming_message)
             self._incoming_message = None
 
-        frame_out = spec.Basic.Ack(delivery_tag=self._get_delivery_tag(), multiple=False)
+        delivery_tag = self._get_publisher_delivery_tag(channel_id)
+        frame_out = spec.Basic.Ack(delivery_tag=delivery_tag, multiple=False)
         await self._send_frame(channel_id, frame_out)
 
     async def _handle_consume(self, channel_id: int, frame_in: spec.Basic.Consume) -> None:
