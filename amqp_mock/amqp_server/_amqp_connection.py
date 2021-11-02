@@ -34,6 +34,7 @@ class AmqpConnection:
         self._delivery_tag = 0
         self._on_consume = on_consume
         self._on_bind: Optional[Callable[[str, str, str], Awaitable[None]]] = None
+        self._on_declare_exchange: Optional[Callable[[str, str], Awaitable[None]]] = None
         self._on_declare_queue: Optional[Callable[[str], Awaitable[None]]] = None
         self._on_publish: Optional[Callable[[Message], Awaitable[None]]] = None
         self._on_ack: Optional[Callable[[str], Awaitable[None]]] = None
@@ -42,6 +43,11 @@ class AmqpConnection:
 
     def on_bind(self, callback: Callable[[str, str, str], Awaitable[None]]) -> 'AmqpConnection':
         self._on_bind = callback
+        return self
+
+    def on_declare_exchange(self, callback: Callable[[str, str],
+                                                     Awaitable[None]]) -> 'AmqpConnection':
+        self._on_declare_exchange = callback
         return self
 
     def on_declare_queue(self, callback: Callable[[str], Awaitable[None]]) -> 'AmqpConnection':
@@ -191,6 +197,9 @@ class AmqpConnection:
 
     async def _send_exchange_declare_ok(self, channel_id: int,
                                         frame_in: spec.Exchange.Declare) -> None:
+        if self._on_declare_exchange:
+            await self._on_declare_exchange(frame_in.exchange, frame_in.exchange_type)
+
         frame_out = spec.Exchange.DeclareOk()
         return await self._send_frame(channel_id, frame_out)
 

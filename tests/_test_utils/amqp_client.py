@@ -37,8 +37,9 @@ class AmqpClient:
         res = await self._channel.queue_declare(queue_name)
         assert isinstance(res, spec.Queue.DeclareOk)
 
-    async def queue_bind(self, queue_name: str, exchange_name: str) -> None:
-        res = await self._channel.queue_bind(queue_name, exchange_name, routing_key="")
+    async def queue_bind(self, queue_name: str, exchange_name: str,
+                         routing_key: str = "") -> None:
+        res = await self._channel.queue_bind(queue_name, exchange_name, routing_key=routing_key)
         assert isinstance(res, spec.Queue.BindOk)
 
     async def publish(self, message: bytes, exchange_name: str, routing_key: str = "") -> None:
