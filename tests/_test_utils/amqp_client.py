@@ -1,6 +1,6 @@
 import asyncio
 from types import TracebackType
-from typing import List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union
 
 import aiormq
 import pamqp.specification as spec
@@ -16,6 +16,7 @@ class AmqpClient:
         self._connection: Union[aiormq.Connection, None] = None
         self._channel: Union[aiormq.Channel, None] = None
         self._messages: List[DeliveredMessage] = []
+        self._consumer_tags: Dict[str, str] = {}
 
     async def connect(self) -> None:
         self._connection = await aiormq.connect(f"amqp://{self._host}:{self._port}/{self._vhost}")
@@ -61,24 +62,34 @@ class AmqpClient:
     async def consume(self, queue_name: str) -> None:
         res = await self._channel.basic_consume(queue_name, self._on_message, no_ack=True)
         assert isinstance(res, spec.Basic.ConsumeOk)
+        self._consumer_tags[queue_name] = res.consumer_tag
 
     async def consume_ack(self, queue_name: str) -> None:
         res = await self._channel.basic_consume(queue_name, self._on_message_do_ack, no_ack=True)
         assert isinstance(res, spec.Basic.ConsumeOk)
+        self._consumer_tags[queue_name] = res.consumer_tag
 
     async def consume_nack(self, queue_name: str) -> None:
         res = await self._channel.basic_consume(queue_name, self._on_message_do_nack, no_ack=True)
         assert isinstance(res, spec.Basic.ConsumeOk)
+        self._consumer_tags[queue_name] = res.consumer_tag
+
+    async def consume_cancel(self, queue_name: str) -> None:
+        consumer_tag = self._consumer_tags[queue_name]
+        res = await self._channel.basic_cancel(consumer_tag)
+        assert isinstance(res, spec.Basic.CancelOk)
+        del self._consumer_tags[queue_name]
 
     async def wait(self, seconds: float) -> None:
         await asyncio.sleep(seconds)
 
-    async def wait_for(self, message_count: int, timeout: float = 1.0) -> List[DeliveredMessage]:
+    async def wait_for(self, message_count: int, attempts: Optional[int] = None,
+                       timeout: float = 1.0) -> List[DeliveredMessage]:
         async def _wait_for() -> bool:
             return len(self._messages) >= message_count
 
         try:
-            await retry(until=lambda r: not r, timeout=timeout)(_wait_for)()
+            await retry(until=lambda r: not r, attempts=attempts, timeout=timeout)(_wait_for)()
         except CancelledError:
             pass
 

@@ -1,8 +1,8 @@
 import json
 import logging
-from asyncio import Task, create_task
+from asyncio import CancelledError, Task, create_task
 from asyncio.streams import StreamReader, StreamWriter
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional, Union
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Tuple, Union
 
 from pamqp import specification as spec
 from pamqp.body import ContentBody
@@ -28,7 +28,7 @@ class AmqpConnection:
         self._stream_writer = writer
         self._server_properties = server_properties
         self._reader = create_task(self._reader_task(reader))
-        self._consumers: List[Task[Any]] = []
+        self._consumers: Dict[Tuple[int, str], Task[Any]] = {}
         self._delivered_messages: Dict[int, str] = {}
         self._incoming_message: Union[Message, None] = None
         self._delivery_tag = 0
@@ -125,6 +125,7 @@ class AmqpConnection:
             spec.Exchange.Declare.name: self._send_exchange_declare_ok,
             spec.Queue.Bind.name: self._send_queue_bind_ok,
             spec.Basic.Qos.name: self._send_basic_qos_ok,
+            spec.Basic.Cancel.name: self._send_basic_cancel_ok,
             spec.Basic.Publish.name: self._handle_publish,
             spec.Basic.Consume.name: self._handle_consume,
             spec.Basic.Ack.name: self._handle_ack,
@@ -200,6 +201,26 @@ class AmqpConnection:
         frame_out = spec.Basic.QosOk()
         return await self._send_frame(channel_id, frame_out)
 
+    async def _send_basic_cancel_ok(self, channel_id: int, frame_in: spec.Basic.Cancel) -> None:
+        consumer_tag = frame_in.consumer_tag
+        consumer_key = (channel_id, consumer_tag)
+
+        try:
+            consumer_task = self._consumers[consumer_key]
+        except KeyError:
+            pass
+        else:
+            consumer_task.cancel()
+            try:
+                await consumer_task
+            except CancelledError:
+                pass
+
+            del self._consumers[consumer_key]
+
+        frame_out = spec.Basic.CancelOk(consumer_tag)
+        return await self._send_frame(channel_id, frame_out)
+
     async def _handle_publish(self, channel_id: int, frame_in: spec.Basic.Publish) -> None:
         self._incoming_message = Message(None,
                                          exchange=frame_in.exchange,
@@ -222,12 +243,13 @@ class AmqpConnection:
         await self._send_frame(channel_id, frame_out)
 
     async def _handle_consume(self, channel_id: int, frame_in: spec.Basic.Consume) -> None:
-        frame_out = spec.Basic.ConsumeOk(consumer_tag=frame_in.consumer_tag)
+        consumer_tag = frame_in.consumer_tag
+        frame_out = spec.Basic.ConsumeOk(consumer_tag=consumer_tag)
         await self._send_frame(channel_id, frame_out)
 
         consumer = create_task(
-            self._consumer_task(frame_in.queue, frame_in.consumer_tag, channel_id))
-        self._consumers.append(consumer)
+            self._consumer_task(frame_in.queue, consumer_tag, channel_id))
+        self._consumers[channel_id, consumer_tag] = consumer
 
     async def _handle_ack(self, channel_id: int, frame_in: spec.Basic.Ack) -> None:
         if self._on_ack:
