@@ -3,7 +3,7 @@ from types import TracebackType
 from typing import Dict, List, Optional, Type, Union
 
 import aiormq
-import pamqp.specification as spec
+from pamqp import commands
 from aiormq.types import DeliveredMessage
 from rtry import CancelledError, retry
 
@@ -28,23 +28,23 @@ class AmqpClient:
 
     async def basic_qos(self, prefetch_count: int) -> None:
         res = await self._channel.basic_qos(prefetch_count=prefetch_count)
-        assert isinstance(res, spec.Basic.QosOk)
+        assert isinstance(res, commands.Basic.QosOk)
 
     async def declare_exchange(self, exchange_name: str, exchange_type: str = "direct") -> None:
         res = await self._channel.exchange_declare(exchange_name, exchange_type=exchange_type)
-        assert isinstance(res, spec.Exchange.DeclareOk)
+        assert isinstance(res, commands.Exchange.DeclareOk)
 
     async def declare_queue(self, queue_name: str) -> None:
         res = await self._channel.queue_declare(queue_name)
-        assert isinstance(res, spec.Queue.DeclareOk)
+        assert isinstance(res, commands.Queue.DeclareOk)
 
     async def queue_bind(self, queue_name: str, exchange_name: str) -> None:
         res = await self._channel.queue_bind(queue_name, exchange_name, routing_key="")
-        assert isinstance(res, spec.Queue.BindOk)
+        assert isinstance(res, commands.Queue.BindOk)
 
     async def publish(self, message: bytes, exchange_name: str) -> None:
         res = await self._channel.basic_publish(message, exchange=exchange_name, routing_key="")
-        assert isinstance(res, spec.Basic.Ack)
+        assert isinstance(res, commands.Basic.Ack)
 
     async def _on_message(self, message: DeliveredMessage) -> None:
         self._messages.append(message)
@@ -61,23 +61,23 @@ class AmqpClient:
 
     async def consume(self, queue_name: str) -> None:
         res = await self._channel.basic_consume(queue_name, self._on_message, no_ack=True)
-        assert isinstance(res, spec.Basic.ConsumeOk)
+        assert isinstance(res, commands.Basic.ConsumeOk)
         self._consumer_tags[queue_name] = res.consumer_tag
 
     async def consume_ack(self, queue_name: str) -> None:
         res = await self._channel.basic_consume(queue_name, self._on_message_do_ack, no_ack=True)
-        assert isinstance(res, spec.Basic.ConsumeOk)
+        assert isinstance(res, commands.Basic.ConsumeOk)
         self._consumer_tags[queue_name] = res.consumer_tag
 
     async def consume_nack(self, queue_name: str) -> None:
         res = await self._channel.basic_consume(queue_name, self._on_message_do_nack, no_ack=True)
-        assert isinstance(res, spec.Basic.ConsumeOk)
+        assert isinstance(res, commands.Basic.ConsumeOk)
         self._consumer_tags[queue_name] = res.consumer_tag
 
     async def consume_cancel(self, queue_name: str) -> None:
         consumer_tag = self._consumer_tags[queue_name]
         res = await self._channel.basic_cancel(consumer_tag)
-        assert isinstance(res, spec.Basic.CancelOk)
+        assert isinstance(res, commands.Basic.CancelOk)
         del self._consumer_tags[queue_name]
 
     async def wait(self, seconds: float) -> None:
