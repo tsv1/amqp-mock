@@ -1,6 +1,6 @@
 import json
 import logging
-from asyncio import CancelledError, Task, create_task
+from asyncio import CancelledError, Task, create_task, gather
 from asyncio.streams import StreamReader, StreamWriter
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Tuple, Union
 
@@ -59,7 +59,27 @@ class AmqpConnection:
         self._delivery_tag += 1
         return self._delivery_tag
 
+    async def _cancel_consumer(self, channel_id: int, consumer_tag: str) -> None:
+        consumer_key = (channel_id, consumer_tag)
+        try:
+            consumer_task = self._consumers[consumer_key]
+        except KeyError:
+            return
+
+        consumer_task.cancel()
+
+        try:
+            await consumer_task
+        except CancelledError:
+            pass
+
+        del self._consumers[consumer_key]
+
     async def close(self) -> None:
+        tasks = [self._cancel_consumer(channel_id, consumer_tag)
+                 for channel_id, consumer_tag in self._consumers]
+        await gather(*tasks, return_exceptions=True)
+
         self._stream_writer.close()
         await self._stream_writer.wait_closed()
 
@@ -205,20 +225,7 @@ class AmqpConnection:
 
     async def _send_basic_cancel_ok(self, channel_id: int, frame_in: spec.Basic.Cancel) -> None:
         consumer_tag = frame_in.consumer_tag
-        consumer_key = (channel_id, consumer_tag)
-
-        try:
-            consumer_task = self._consumers[consumer_key]
-        except KeyError:
-            pass
-        else:
-            consumer_task.cancel()
-            try:
-                await consumer_task
-            except CancelledError:
-                pass
-
-            del self._consumers[consumer_key]
+        await self._cancel_consumer(channel_id, consumer_tag)
 
         frame_out = spec.Basic.CancelOk(consumer_tag)
         return await self._send_frame(channel_id, frame_out)
