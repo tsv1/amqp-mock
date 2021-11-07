@@ -86,7 +86,7 @@ asyncio.run(run())
 
 `POST /queues/{queue}/messages`
 
-```json
+```js
 {
     "id": "9e342ac1-eef6-40b1-9eaf-053ee7887968",
     "value": [1, 2, 3],
