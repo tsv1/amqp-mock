@@ -44,7 +44,9 @@ class Storage:
 
     async def get_next_message(self, queue: str) -> AsyncGenerator[Message, None]:
         if queue not in self._queues:
-            return
+            self._queues[queue] = Queue()
 
         while True:
-            yield await self._queues[queue].get()
+            message = await self._queues[queue].get()
+            yield message
+            self._queues[queue].task_done()
