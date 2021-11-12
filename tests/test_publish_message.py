@@ -1,12 +1,13 @@
 import pytest
+from rtry import timeout, CancelledError
 
 from amqp_mock import Message
 
-from ._test_utils.fixtures import amqp_client, mock_client, mock_server
+from ._test_utils.fixtures import amqp_client, amqp_client_factory, mock_client, mock_server
 from ._test_utils.helpers import to_binary
 from ._test_utils.steps import given, then, when
 
-__all__ = ("mock_client", "mock_server", "amqp_client",)
+__all__ = ("mock_client", "mock_server", "amqp_client", "amqp_client_factory",)
 
 
 @pytest.mark.asyncio
@@ -119,6 +120,73 @@ async def test_publish_message_specific_queue(*, mock_server, mock_client, amqp_
 
         assert len(messages) == 1
         assert messages[0].body == to_binary(message1)
+
+
+@pytest.mark.asyncio
+async def test_publish_to_default_exchange(*, mock_server, mock_client, amqp_client):
+    with given:
+        exchange = ""
+        queue = "test_queue"
+        message = {"value": "text"}
+
+    with when:
+        await amqp_client.declare_queue(queue)
+        await amqp_client.publish(to_binary(message), exchange, routing_key=queue)
+        await amqp_client.consume(queue)
+
+    with then:
+        messages = await amqp_client.wait_for(message_count=1)
+        assert len(messages) == 1
+        assert messages[0].body == to_binary(message)
+        messages = await mock_client.get_exchange_messages("")
+        assert len(messages) == 1
+        assert messages[0].value == message
+
+
+@pytest.mark.asyncio
+async def test_publish_to_exchange_with_bound_queue(*, mock_server, amqp_client):
+    with given:
+        exchange = "test_exchange"
+        queue = "test_queue"
+        message = b"text"
+
+    with when:
+        await amqp_client.queue_bind(queue, exchange)
+        await amqp_client.publish(message, exchange)
+        await amqp_client.consume(queue)
+
+    with then:
+        messages = await amqp_client.wait_for(message_count=1)
+        assert len(messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_publish_multiple_channels(*, mock_server, amqp_client_factory):
+    with given:
+        amqp_client1 = await amqp_client_factory()
+        amqp_client2 = await amqp_client_factory(amqp_client1.connection)
+        exchange = ""
+        queue1, queue2 = "test_queue1", "test_queue2"
+        message = {"value": "text"}
+
+    with when:
+        for client, queue in [(amqp_client1, queue1), (amqp_client2, queue2)]:
+            await client.declare_queue(queue)
+            await client.consume(queue)
+            # The bug is reproduced if the call to amqp_client2.publish hangs,
+            # because the client never confirms delivery of a message with the
+            # correct delivery_tag
+            try:
+                async with timeout(1.0):
+                    await client.publish(to_binary(message), exchange, queue)
+            except CancelledError:
+                pytest.fail('published message never delivered')
+
+    with then:
+        for client in [amqp_client1, amqp_client2]:
+            messages = await client.wait_for(message_count=1)
+            assert len(messages) == 1
+            assert messages[0].body == to_binary(message)
 
 
 @pytest.mark.asyncio

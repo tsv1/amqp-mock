@@ -29,3 +29,19 @@ async def amqp_client():
     await client.connect()
     yield client
     await client.close()
+
+
+@pytest.fixture()
+async def amqp_client_factory():
+    clients = []
+
+    async def factory(connection=None):
+        client = AmqpClient("localhost", 5674)
+        await client.connect(connection=connection)
+        clients.append(client)
+        return client
+
+    yield factory
+
+    for client in clients:
+        await client.close()

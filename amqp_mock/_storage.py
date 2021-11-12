@@ -1,6 +1,6 @@
 from asyncio import Queue
-from collections import OrderedDict
-from typing import AsyncGenerator, Dict, List
+from collections import defaultdict, OrderedDict
+from typing import AsyncGenerator, DefaultDict, Dict, List
 
 from ._message import Message, MessageStatus, QueuedMessage
 
@@ -10,16 +10,34 @@ class Storage:
         self._exchanges: Dict[str, List[Message]] = {}
         self._queues: Dict[str, Queue[Message]] = {}
         self._history: Dict[str, QueuedMessage] = OrderedDict()
+        self._binds: DefaultDict[str, Dict[str, str]] = defaultdict(dict)
 
     async def clear(self) -> None:
         self._exchanges = {}
         self._queues = {}
         self._history = OrderedDict()
+        self._binds = defaultdict(dict)
 
     async def add_message_to_exchange(self, exchange: str, message: Message) -> None:
         if exchange not in self._exchanges:
             self._exchanges[exchange] = []
         self._exchanges[exchange].insert(0, message)
+
+        binds = self._binds.get(exchange)
+        routing_key = message.routing_key
+
+        if binds and routing_key in binds:
+            await self.add_message_to_queue(binds[routing_key], message)
+
+    async def bind_queue_to_exchange(self, queue: str, exchange: str,
+                                     routing_key: str = "") -> None:
+        self._binds[exchange][routing_key] = queue
+
+    async def declare_queue(self, queue: str) -> None:
+        if queue not in self._queues:
+            self._queues[queue] = Queue()
+
+        await self.bind_queue_to_exchange(queue, "", routing_key=queue)
 
     async def get_messages_from_exchange(self, exchange: str) -> List[Message]:
         if exchange not in self._exchanges:
@@ -31,8 +49,7 @@ class Storage:
             self._exchanges[exchange] = []
 
     async def add_message_to_queue(self, queue: str, message: Message) -> None:
-        if queue not in self._queues:
-            self._queues[queue] = Queue()
+        await self.declare_queue(queue)
         await self._queues[queue].put(message)
         self._history[message.id] = QueuedMessage(message, queue)
 
