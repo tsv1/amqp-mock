@@ -54,6 +54,22 @@ class Storage:
             self._queues[queue] = Queue()
             await self.bind_queue_to_exchange(queue, "", routing_key=queue)
 
+        binds = self._binds.get(exchange)
+        routing_key = message.routing_key
+
+        if binds and routing_key in binds:
+            await self.add_message_to_queue(binds[routing_key], message)
+
+    async def bind_queue_to_exchange(self, queue: str, exchange: str,
+                                     routing_key: str = "") -> None:
+        self._binds[exchange][routing_key] = queue
+
+    async def declare_queue(self, queue: str) -> None:
+        if queue not in self._queues:
+            self._queues[queue] = Queue()
+
+        await self.bind_queue_to_exchange(queue, "", routing_key=queue)
+
     async def get_messages_from_exchange(self, exchange: str) -> List[Message]:
         if exchange not in self._exchanges:
             return []
@@ -76,7 +92,9 @@ class Storage:
 
     async def get_next_message(self, queue: str) -> AsyncGenerator[Message, None]:
         if queue not in self._queues:
-            return
+            self._queues[queue] = Queue()
 
         while True:
-            yield await self._queues[queue].get()
+            message = await self._queues[queue].get()
+            yield message
+            self._queues[queue].task_done()

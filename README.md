@@ -82,11 +82,17 @@ async def run() -> None:
 asyncio.run(run())
 ```
 
+or via docker
+
+```shell
+docker run -p 8080:80 -p 5672:5672 nikitanovosibirsk/amqp-mock
+```
+
 ### Publish message
 
 `POST /queues/{queue}/messages`
 
-```json
+```js
 {
     "id": "9e342ac1-eef6-40b1-9eaf-053ee7887968",
     "value": [1, 2, 3],
@@ -116,7 +122,7 @@ Content-Type: application/json
 <p>
 
 ```python
-from amqp_mock import AmqpMockClient
+from amqp_mock import AmqpMockClient, Message
 
 mock_client = AmqpMockClient()
 message = Message([1, 2, 3], exchange="test_exchange")

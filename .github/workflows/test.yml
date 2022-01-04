@@ -3,9 +3,10 @@ name: Test
 on:
   push:
     branches:
-      - '*'
-    tags-ignore:
-      - '*'
+      - 'master'
+  pull_request:
+    branches:
+      - 'master'
   schedule:
     # every Wed at 07:00 UTC
     - cron:  '0 7 * * 3'
@@ -15,12 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: ['3.7', '3.8', '3.9', '3.10']
 
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -40,7 +41,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: '3.x'
     - name: Build

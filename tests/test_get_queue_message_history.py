@@ -3,6 +3,7 @@ import pytest
 from amqp_mock import Message, MessageStatus, QueuedMessage
 
 from ._test_utils.fixtures import amqp_client, mock_client, mock_server
+from ._test_utils.helpers import random_uuid, to_binary
 from ._test_utils.steps import given, then, when
 
 __all__ = ("mock_client", "mock_server", "amqp_client",)
@@ -94,3 +95,88 @@ async def test_get_queue_message_history(*, mock_server, mock_client, amqp_clien
         assert len(history) == 2
         assert history[0].message.value == message2
         assert history[1].message.value == message1
+
+
+@pytest.mark.asyncio
+async def test_get_queue_message_history_with_declared_queue_no_routing_key(*,
+                                                                            mock_server,
+                                                                            mock_client,
+                                                                            amqp_client):
+    with given:
+        exchange = ""
+        queue = "test_queue"
+        message = {"id": random_uuid()}
+
+        await amqp_client.declare_queue(queue)
+        await amqp_client.publish(to_binary(message), exchange, routing_key="")
+
+    with when:
+        history = await mock_client.get_queue_message_history(queue)
+
+    with then:
+        assert len(history) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_queue_message_history_with_declared_queue_default_exchange(*,
+                                                                              mock_server,
+                                                                              mock_client,
+                                                                              amqp_client):
+    with given:
+        exchange = ""
+        queue = "test_queue"
+        message = {"id": random_uuid()}
+
+        await amqp_client.declare_queue(queue)
+        await amqp_client.publish(to_binary(message), exchange, routing_key=queue)
+
+    with when:
+        history = await mock_client.get_queue_message_history(queue)
+
+    with then:
+        assert len(history) == 1
+        assert history[0].message.value == message
+        assert history[0].message.routing_key == queue
+        assert history[0].status == MessageStatus.INIT
+
+
+@pytest.mark.asyncio
+async def test_get_queue_message_history_with_declared_queue_custom_exchange(*,
+                                                                             mock_server,
+                                                                             mock_client,
+                                                                             amqp_client):
+    with given:
+        exchange = "test_exchange"
+        queue = "test_queue"
+        message = {"id": random_uuid()}
+
+        await amqp_client.declare_queue(queue)
+        await amqp_client.publish(to_binary(message), exchange, routing_key=queue)
+
+    with when:
+        history = await mock_client.get_queue_message_history(queue)
+
+    with then:
+        assert len(history) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_queue_message_history_with_bound_queue(*, mock_server,
+                                                          mock_client, amqp_client):
+    with given:
+        exchange = "test_exchange"
+        queue = "test_queue"
+        message = {"id": random_uuid()}
+
+        await amqp_client.queue_bind(queue, exchange)
+        await amqp_client.publish(to_binary(message), exchange)
+
+    with when:
+        history = await mock_client.get_queue_message_history(queue)
+
+    with then:
+        assert len(history) == 1
+        assert history[0].message.value == message
+        assert history[0].message.exchange == exchange
+        assert history[0].queue == queue
+        assert history[0].status == MessageStatus.INIT

@@ -73,3 +73,21 @@ async def test_get_no_exchange_messages(*, mock_server, mock_client):
 
     with then:
         assert len(messages) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("routing_key", ["", "test_routing_key"])
+async def test_get_exchange_message_published_with_routing_key(routing_key, *, mock_server,
+                                                               mock_client, amqp_client):
+    with given:
+        exchange = "test_exchange"
+        message = {"id": random_uuid()}
+        await amqp_client.publish(to_binary(message), exchange, routing_key=routing_key)
+
+    with when:
+        messages = await mock_client.get_exchange_messages(exchange)
+
+    with then:
+        assert len(messages) == 1
+        assert messages[0].value == message
+        assert messages[0].routing_key == routing_key
