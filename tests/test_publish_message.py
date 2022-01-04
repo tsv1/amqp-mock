@@ -3,7 +3,7 @@ import pytest
 from amqp_mock import Message
 
 from ._test_utils.fixtures import amqp_client, mock_client, mock_server
-from ._test_utils.helpers import to_binary
+from ._test_utils.helpers import random_uuid, to_binary
 from ._test_utils.steps import given, then, when
 
 __all__ = ("mock_client", "mock_server", "amqp_client",)
@@ -77,10 +77,6 @@ async def test_publish_new_message_while_consuming(*, mock_server, mock_client, 
     with then:
         messages = await amqp_client.wait_for(message_count=1)
         assert len(messages) == 1
-
-        h = await mock_client.get_queue_message_history(queue)
-        print(h)
-
         assert messages[0].body == to_binary(message)
 
 
@@ -122,44 +118,6 @@ async def test_publish_message_specific_queue(*, mock_server, mock_client, amqp_
 
 
 @pytest.mark.asyncio
-async def test_publish_to_default_exchange(*, mock_server, mock_client, amqp_client):
-    with given:
-        exchange = ""
-        queue = "test_queue"
-        message = {"value": "text"}
-
-    with when:
-        await amqp_client.declare_queue(queue)
-        await amqp_client.publish(to_binary(message), exchange, routing_key=queue)
-        await amqp_client.consume(queue)
-
-    with then:
-        messages = await amqp_client.wait_for(message_count=1)
-        assert len(messages) == 1
-        assert messages[0].body == to_binary(message)
-        messages = await mock_client.get_exchange_messages("")
-        assert len(messages) == 1
-        assert messages[0].value == message
-
-
-@pytest.mark.asyncio
-async def test_publish_to_exchange_with_bound_queue(*, mock_server, amqp_client):
-    with given:
-        exchange = "test_exchange"
-        queue = "test_queue"
-        message = b"text"
-
-    with when:
-        await amqp_client.queue_bind(queue, exchange)
-        await amqp_client.publish(message, exchange)
-        await amqp_client.consume(queue)
-
-    with then:
-        messages = await amqp_client.wait_for(message_count=1)
-        assert len(messages) == 1
-
-
-@pytest.mark.asyncio
 async def test_publish_no_messages(*, mock_server, amqp_client):
     with given:
         queue = "test_queue1"
@@ -182,12 +140,31 @@ async def test_publish_cancelled_consumer(*, mock_server, mock_client, amqp_clie
         await amqp_client.consume(queue)
         await amqp_client.wait_for(message_count=1)
 
-    with when:
         await amqp_client.consume_cancel(queue)
+
+    with when:
         await mock_client.publish_message(queue, Message(message2))
-        await amqp_client.wait_for(message_count=1, attempts=1)
 
     with then:
+        await amqp_client.wait_for(message_count=1, attempts=1)
         messages = amqp_client.get_consumed_messages()
         assert len(messages) == 1
         assert messages[0].body == to_binary(message1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("routing_key", ["", "test_routing_key"])
+async def test_get_exchange_message_with_routing_key(routing_key, *,
+                                                     mock_server, mock_client, amqp_client):
+    with given:
+        exchange = "test_exchange"
+        message = {"id": random_uuid()}
+        await amqp_client.publish(to_binary(message), exchange, routing_key=routing_key)
+
+    with when:
+        messages = await mock_client.get_exchange_messages(exchange)
+
+    with then:
+        assert len(messages) == 1
+        assert messages[0].value == message
+        assert messages[0].routing_key == routing_key
