@@ -52,7 +52,7 @@ class Storage:
     async def declare_queue(self, queue: str) -> None:
         if queue not in self._queues:
             self._queues[queue] = Queue()
-            await self.bind_queue_to_exchange(queue, "", routing_key=queue)
+            await self.bind_queue_to_exchange(queue, exchange="", routing_key=queue)
 
     async def get_messages_from_exchange(self, exchange: str) -> List[Message]:
         if exchange not in self._exchanges:

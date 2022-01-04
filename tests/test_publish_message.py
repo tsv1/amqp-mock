@@ -118,45 +118,6 @@ async def test_publish_message_specific_queue(*, mock_server, mock_client, amqp_
 
 
 @pytest.mark.asyncio
-async def test_publish_to_default_exchange(*, mock_server, mock_client, amqp_client):
-    with given:
-        exchange = ""
-        queue = "test_queue"
-        message = {"value": "text"}
-
-    with when:
-        await amqp_client.declare_queue(queue)
-        await amqp_client.publish(to_binary(message), exchange, routing_key=queue)
-        await amqp_client.consume(queue)
-
-    with then:
-        messages = await amqp_client.wait_for(message_count=1)
-        assert len(messages) == 1
-        assert messages[0].body == to_binary(message)
-        messages = await mock_client.get_exchange_messages("")
-        assert len(messages) == 1
-        assert messages[0].value == message
-
-
-@pytest.mark.asyncio
-async def test_publish_to_exchange_with_bound_queue(*, mock_server, amqp_client):
-    with given:
-        exchange = "test_exchange"
-        queue = "test_queue"
-        message = {"value": "text"}
-
-    with when:
-        await amqp_client.queue_bind(queue, exchange)
-        await amqp_client.publish(to_binary(message), exchange)
-        await amqp_client.consume(queue)
-
-    with then:
-        messages = await amqp_client.wait_for(message_count=1)
-        assert len(messages) == 1
-        assert messages[0].body == to_binary(message)
-
-
-@pytest.mark.asyncio
 async def test_publish_to_fanout_exchange(*, mock_server, amqp_client):
     with given:
         exchange = "test_exchange"
