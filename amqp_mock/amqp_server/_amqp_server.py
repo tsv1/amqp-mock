@@ -51,10 +51,10 @@ class AmqpServer:
     async def _on_bind(self, queue: str, exchange: str, routing_key: str) -> None:
         await self._storage.bind_queue_to_exchange(queue, exchange, routing_key)
 
-    async def _on_declare_exchange(self, exchange: str, exchange_type: str):
+    async def _on_declare_exchange(self, exchange: str, exchange_type: str) -> None:
         await self._storage.declare_exchange(exchange, exchange_type)
 
-    async def _on_declare_queue(self, queue: str):
+    async def _on_declare_queue(self, queue: str) -> None:
         await self._storage.declare_queue(queue)
 
     async def _on_publish(self, message: Message) -> None:

@@ -1,5 +1,5 @@
 from asyncio import Queue
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import AsyncGenerator, DefaultDict, Dict, List
 
 from ._message import Message, MessageStatus, QueuedMessage
@@ -53,22 +53,6 @@ class Storage:
         if queue not in self._queues:
             self._queues[queue] = Queue()
             await self.bind_queue_to_exchange(queue, "", routing_key=queue)
-
-        binds = self._binds.get(exchange)
-        routing_key = message.routing_key
-
-        if binds and routing_key in binds:
-            await self.add_message_to_queue(binds[routing_key], message)
-
-    async def bind_queue_to_exchange(self, queue: str, exchange: str,
-                                     routing_key: str = "") -> None:
-        self._binds[exchange][routing_key] = queue
-
-    async def declare_queue(self, queue: str) -> None:
-        if queue not in self._queues:
-            self._queues[queue] = Queue()
-
-        await self.bind_queue_to_exchange(queue, "", routing_key=queue)
 
     async def get_messages_from_exchange(self, exchange: str) -> List[Message]:
         if exchange not in self._exchanges:
