@@ -1,5 +1,5 @@
 from asyncio import Queue
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import AsyncGenerator, DefaultDict, Dict, List
 
 from ._message import Message, MessageStatus, QueuedMessage
