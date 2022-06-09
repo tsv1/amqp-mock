@@ -4,7 +4,7 @@ from asyncio import CancelledError, Task, create_task, gather
 from asyncio.streams import StreamReader, StreamWriter
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Tuple, Union
 
-from pamqp import specification as spec
+from pamqp import base, commands
 from pamqp.body import ContentBody
 from pamqp.exceptions import UnmarshalingException
 from pamqp.frame import marshal, unmarshal
@@ -17,7 +17,7 @@ __all__ = ("AmqpConnection",)
 
 _logger = logging.getLogger("amqp_mock")
 
-AnyFrame = Union[spec.Frame, ContentHeader, ContentBody]
+AnyFrame = Union[base.Frame, ContentHeader, ContentBody, ProtocolHeader, Heartbeat]
 
 
 class AmqpConnection:
@@ -125,7 +125,7 @@ class AmqpConnection:
             delivery_tag = self._get_delivery_tag()
             self._delivered_messages[delivery_tag] = message.id
 
-            frame_out = spec.Basic.Deliver(
+            frame_out = commands.Basic.Deliver(
                 consumer_tag=consumer_tag,
                 delivery_tag=delivery_tag,
                 exchange=message.exchange,
@@ -134,37 +134,38 @@ class AmqpConnection:
             await self._send_frame(channel_id, frame_out)
 
             encoded = json.dumps(message.value).encode()
-            properties = spec.Basic.Properties(**(message.properties or {}))
+            properties = commands.Basic.Properties(**(message.properties or {}))
             header = ContentHeader(body_size=len(encoded), properties=properties)
             body = ContentBody(encoded)
             await self._send_frame(channel_id, header)
             await self._send_frame(channel_id, body)
 
-    async def dispatch_frame(self, frame: AnyFrame, channel_id: int) -> None:
-        handlers = {
+    async def dispatch_frame(self, frame: AnyFrame, channel_id: int) -> Any:
+        handlers: Dict[str, Callable[[int, Any], Any]] = {
             Heartbeat.name: self._do_nothing,
             ProtocolHeader.name: self._send_connection_start,
             ContentHeader.name: self._handle_content_header,
             ContentBody.name: self._handle_content_body,
-            spec.Connection.StartOk.name: self._send_connection_tune,
-            spec.Connection.TuneOk.name: self._do_nothing,
-            spec.Connection.Open.name: self._send_connection_open_ok,
-            spec.Connection.Close.name: self._send_connection_close_ok,
-            spec.Channel.Open.name: self._send_channel_open_ok,
-            spec.Channel.Close.name: self._send_channel_close_ok,
-            spec.Confirm.Select.name: self._send_confirm_select_ok,
-            spec.Queue.Declare.name: self._send_queue_declare_ok,
-            spec.Exchange.Declare.name: self._send_exchange_declare_ok,
-            spec.Queue.Bind.name: self._send_queue_bind_ok,
-            spec.Basic.Qos.name: self._send_basic_qos_ok,
-            spec.Basic.Cancel.name: self._send_basic_cancel_ok,
-            spec.Basic.Publish.name: self._handle_publish,
-            spec.Basic.Consume.name: self._handle_consume,
-            spec.Basic.Ack.name: self._handle_ack,
-            spec.Basic.Nack.name: self._handle_nack,
+            commands.Connection.StartOk.name: self._send_connection_tune,
+            commands.Connection.TuneOk.name: self._do_nothing,
+            commands.Connection.Open.name: self._send_connection_open_ok,
+            commands.Connection.Close.name: self._send_connection_close_ok,
+            commands.Channel.Open.name: self._send_channel_open_ok,
+            commands.Channel.Close.name: self._send_channel_close_ok,
+            commands.Confirm.Select.name: self._send_confirm_select_ok,
+            commands.Queue.Declare.name: self._send_queue_declare_ok,
+            commands.Exchange.Declare.name: self._send_exchange_declare_ok,
+            commands.Queue.Bind.name: self._send_queue_bind_ok,
+            commands.Basic.Qos.name: self._send_basic_qos_ok,
+            commands.Basic.Cancel.name: self._send_basic_cancel_ok,
+            commands.Basic.Publish.name: self._handle_publish,
+            commands.Basic.Consume.name: self._handle_consume,
+            commands.Basic.Ack.name: self._handle_ack,
+            commands.Basic.Nack.name: self._handle_nack,
         }
         if frame.name in handlers:
-            return await handlers[frame.name](channel_id, frame)
+            handler = handlers[frame.name]
+            return await handler(channel_id, frame)
         return await self._do_nothing(channel_id, frame)
 
     async def _send_frame(self, channel_id: int, frame: AnyFrame) -> None:
@@ -175,8 +176,8 @@ class AmqpConnection:
     async def _do_nothing(self, channel_id: int, frame_in: AnyFrame) -> None:
         _logger.debug("-> DoNothing")
 
-    async def _send_connection_start(self, channel_id: int, frame_in: spec.Frame) -> None:
-        frame_out = spec.Connection.Start(
+    async def _send_connection_start(self, channel_id: int, frame_in: base.Frame) -> None:
+        frame_out = commands.Connection.Start(
             version_major=0,
             version_minor=9,
             server_properties=self._server_properties,
@@ -186,67 +187,76 @@ class AmqpConnection:
         return await self._send_frame(channel_id, frame_out)
 
     async def _send_connection_tune(self, channel_id: int,
-                                    frame_in: spec.Connection.StartOk) -> None:
-        frame_out = spec.Connection.Tune(channel_max=0, frame_max=0, heartbeat=0)
+                                    frame_in: commands.Connection.StartOk) -> None:
+        frame_out = commands.Connection.Tune(channel_max=0, frame_max=0, heartbeat=0)
         return await self._send_frame(channel_id, frame_out)
 
     async def _send_connection_open_ok(self, channel_id: int,
-                                       frame_in: spec.Connection.Open) -> None:
-        frame_out = spec.Connection.OpenOk()
+                                       frame_in: commands.Connection.Open) -> None:
+        frame_out = commands.Connection.OpenOk()
         await self._send_frame(channel_id, frame_out)
 
-    async def _send_channel_open_ok(self, channel_id: int, frame_in: spec.Channel.Open) -> None:
-        frame_out = spec.Channel.OpenOk()
+    async def _send_channel_open_ok(self, channel_id: int,
+                                    frame_in: commands.Channel.Open) -> None:
+        frame_out = commands.Channel.OpenOk()
         await self._send_frame(channel_id, frame_out)
 
-    async def _send_queue_declare_ok(self, channel_id: int, frame_in: spec.Queue.Declare) -> None:
+    async def _send_queue_declare_ok(self, channel_id: int,
+                                     frame_in: commands.Queue.Declare) -> None:
         if self._on_declare_queue:
             await self._on_declare_queue(frame_in.queue)
 
-        frame_out = spec.Queue.DeclareOk(queue=frame_in.queue, message_count=0, consumer_count=0)
+        frame_out = commands.Queue.DeclareOk(queue=frame_in.queue,
+                                             message_count=0, consumer_count=0)
         return await self._send_frame(channel_id, frame_out)
 
     async def _send_exchange_declare_ok(self, channel_id: int,
-                                        frame_in: spec.Exchange.Declare) -> None:
-        frame_out = spec.Exchange.DeclareOk()
+                                        frame_in: commands.Exchange.Declare) -> None:
+        frame_out = commands.Exchange.DeclareOk()
         return await self._send_frame(channel_id, frame_out)
 
-    async def _send_queue_bind_ok(self, channel_id: int, frame_in: spec.Queue.Bind) -> None:
+    async def _send_queue_bind_ok(self, channel_id: int, frame_in: commands.Queue.Bind) -> None:
         if self._on_bind:
             await self._on_bind(frame_in.queue, frame_in.exchange, frame_in.routing_key)
 
-        frame_out = spec.Queue.BindOk()
+        frame_out = commands.Queue.BindOk()
         return await self._send_frame(channel_id, frame_out)
 
     async def _send_confirm_select_ok(self, channel_id: int,
-                                      frame_in: spec.Confirm.Select) -> None:
-        frame_out = spec.Confirm.SelectOk()
+                                      frame_in: commands.Confirm.Select) -> None:
+        frame_out = commands.Confirm.SelectOk()
         return await self._send_frame(channel_id, frame_out)
 
     async def _send_connection_close_ok(self, channel_id: int,
-                                        frame_in: spec.Connection.Close) -> None:
-        frame_out = spec.Connection.CloseOk()
+                                        frame_in: commands.Connection.Close) -> None:
+        frame_out = commands.Connection.CloseOk()
         await self._send_frame(channel_id, frame_out)
 
         self._stream_writer.close()
         await self._stream_writer.wait_closed()
 
-    async def _send_channel_close_ok(self, channel_id: int, frame_in: spec.Channel.Close) -> None:
-        frame_out = spec.Channel.CloseOk()
+    async def _send_channel_close_ok(self, channel_id: int,
+                                     frame_in: commands.Channel.Close) -> None:
+        frame_out = commands.Channel.CloseOk()
         await self._send_frame(channel_id, frame_out)
 
-    async def _send_basic_qos_ok(self, channel_id: int, frame_in: spec.Basic.Qos) -> None:
-        frame_out = spec.Basic.QosOk()
+    async def _send_basic_qos_ok(self, channel_id: int,
+                                 frame_in: commands.Basic.Qos) -> None:
+        frame_out = commands.Basic.QosOk()
         return await self._send_frame(channel_id, frame_out)
 
-    async def _send_basic_cancel_ok(self, channel_id: int, frame_in: spec.Basic.Cancel) -> None:
+    async def _send_basic_cancel_ok(self, channel_id: int,
+                                    frame_in: commands.Basic.Cancel) -> None:
         consumer_tag = frame_in.consumer_tag
+        if consumer_tag is None:
+            return
+
         await self._cancel_consumer(channel_id, consumer_tag)
 
-        frame_out = spec.Basic.CancelOk(consumer_tag)
+        frame_out = commands.Basic.CancelOk(consumer_tag)
         return await self._send_frame(channel_id, frame_out)
 
-    async def _handle_publish(self, channel_id: int, frame_in: spec.Basic.Publish) -> None:
+    async def _handle_publish(self, channel_id: int, frame_in: commands.Basic.Publish) -> None:
         self._incoming_message = Message(None,
                                          exchange=frame_in.exchange,
                                          routing_key=frame_in.routing_key)
@@ -254,7 +264,7 @@ class AmqpConnection:
 
     async def _handle_content_header(self, channel_id: int, frame_in: ContentHeader) -> None:
         if self._incoming_message:
-            self._incoming_message.properties = frame_in.properties.to_dict()
+            self._incoming_message.properties = dict(frame_in.properties)
         return await self._do_nothing(channel_id, frame_in)
 
     async def _handle_content_body(self, channel_id: int, frame_in: ContentBody) -> None:
@@ -264,24 +274,24 @@ class AmqpConnection:
                 await self._on_publish(self._incoming_message)
             self._incoming_message = None
 
-        frame_out = spec.Basic.Ack(delivery_tag=self._get_delivery_tag(), multiple=False)
+        frame_out = commands.Basic.Ack(delivery_tag=self._get_delivery_tag(), multiple=False)
         await self._send_frame(channel_id, frame_out)
 
-    async def _handle_consume(self, channel_id: int, frame_in: spec.Basic.Consume) -> None:
+    async def _handle_consume(self, channel_id: int, frame_in: commands.Basic.Consume) -> None:
         consumer_tag = frame_in.consumer_tag
-        frame_out = spec.Basic.ConsumeOk(consumer_tag=consumer_tag)
+        frame_out = commands.Basic.ConsumeOk(consumer_tag=consumer_tag)
         await self._send_frame(channel_id, frame_out)
 
         consumer = create_task(
             self._consumer_task(frame_in.queue, consumer_tag, channel_id))
         self._consumers[channel_id, consumer_tag] = consumer
 
-    async def _handle_ack(self, channel_id: int, frame_in: spec.Basic.Ack) -> None:
+    async def _handle_ack(self, channel_id: int, frame_in: commands.Basic.Ack) -> None:
         if self._on_ack:
             message_id = self._delivered_messages[frame_in.delivery_tag]
             await self._on_ack(message_id)
 
-    async def _handle_nack(self, channel_id: int, frame_in: spec.Basic.Nack) -> None:
+    async def _handle_nack(self, channel_id: int, frame_in: commands.Basic.Nack) -> None:
         if self._on_nack:
             message_id = self._delivered_messages[frame_in.delivery_tag]
             await self._on_nack(message_id)
