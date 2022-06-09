@@ -3,7 +3,7 @@ from types import TracebackType
 from typing import Dict, List, Optional, Type, Union
 
 import aiormq
-from aiormq.types import DeliveredMessage
+from aiormq.abc import DeliveredMessage
 from pamqp import commands
 from rtry import CancelledError, retry
 
