@@ -277,8 +277,10 @@ class AmqpConnection:
     async def _handle_content_body(self, channel_id: int, frame_in: ContentBody) -> None:
         if self._incoming_message:
             self._incoming_message.value = frame_in.value
-            if channel_id in self._transactions:
-                self._transactions[channel_id].append(self._incoming_message)
+
+            transaction = self._transactions.get(channel_id)
+            if transaction:
+                transaction.append(self._incoming_message)
             elif self._on_publish:
                 await self._on_publish(self._incoming_message)
             self._incoming_message = None
