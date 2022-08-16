@@ -27,4 +27,4 @@ class AmqpSite(BaseSite):
             self._port = self._server.sockets[0].getsockname()[1]
 
     def name(self) -> str:
-        return "ampq://{host}:{port}".format(host=self._host, port=self._port)
+        return "amqp://{host}:{port}".format(host=self._host, port=self._port)

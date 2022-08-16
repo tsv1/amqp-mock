@@ -279,7 +279,7 @@ class AmqpConnection:
             self._incoming_message.value = frame_in.value
 
             transaction = self._transactions.get(channel_id)
-            if transaction:
+            if transaction is not None:
                 transaction.append(self._incoming_message)
             elif self._on_publish:
                 await self._on_publish(self._incoming_message)
@@ -316,7 +316,7 @@ class AmqpConnection:
 
     async def _handle_tx_commit(self, channel_id: int, frame_in: commands.Tx.Commit) -> None:
         transaction = self._transactions.get(channel_id)
-        if transaction:
+        if transaction is not None:
             if self._on_publish:
                 for message in transaction:
                     await self._on_publish(message)
@@ -328,7 +328,7 @@ class AmqpConnection:
 
     async def _handle_rollback(self, channel_id: int, frame_in: commands.Tx.Rollback) -> None:
         transaction = self._transactions.get(channel_id)
-        if transaction:
+        if transaction is not None:
             transaction.clear()
 
         frame_out = commands.Tx.RollbackOk()
