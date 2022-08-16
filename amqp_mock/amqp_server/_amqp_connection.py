@@ -31,7 +31,7 @@ class AmqpConnection:
         self._consumers: Dict[Tuple[int, str], Task[Any]] = {}
         self._delivered_messages: Dict[int, str] = {}
         self._incoming_message: Union[Message, None] = None
-        self._transaction: Optional[List[Message]] = None
+        self._transactions: Dict[int, List[Message]] = {}
         self._delivery_tag = 0
         self._on_consume = on_consume
         self._on_bind: Optional[Callable[[str, str, str], Awaitable[None]]] = None
@@ -152,7 +152,7 @@ class AmqpConnection:
             commands.Connection.Open.name: self._send_connection_open_ok,
             commands.Connection.Close.name: self._send_connection_close_ok,
             commands.Channel.Open.name: self._send_channel_open_ok,
-            commands.Channel.Close.name: self._send_channel_close_ok,
+            commands.Channel.Close.name: self._handle_channel_close,
             commands.Confirm.Select.name: self._send_confirm_select_ok,
             commands.Queue.Declare.name: self._send_queue_declare_ok,
             commands.Exchange.Declare.name: self._send_exchange_declare_ok,
@@ -239,8 +239,11 @@ class AmqpConnection:
         self._stream_writer.close()
         await self._stream_writer.wait_closed()
 
-    async def _send_channel_close_ok(self, channel_id: int,
+    async def _handle_channel_close(self, channel_id: int,
                                      frame_in: commands.Channel.Close) -> None:
+        if channel_id in self._transactions:
+            del self._transactions[channel_id]
+
         frame_out = commands.Channel.CloseOk()
         await self._send_frame(channel_id, frame_out)
 
@@ -274,8 +277,8 @@ class AmqpConnection:
     async def _handle_content_body(self, channel_id: int, frame_in: ContentBody) -> None:
         if self._incoming_message:
             self._incoming_message.value = frame_in.value
-            if self._transaction is not None:
-                self._transaction.append(self._incoming_message)
+            if channel_id in self._transactions:
+                self._transactions[channel_id].append(self._incoming_message)
             elif self._on_publish:
                 await self._on_publish(self._incoming_message)
             self._incoming_message = None
@@ -303,23 +306,25 @@ class AmqpConnection:
             await self._on_nack(message_id)
 
     async def _handle_tx_select(self, channel_id: int, frame_in: commands.Tx.Select) -> None:
-        if self._transaction is None:
-            self._transaction = []
+        if channel_id not in self._transactions:
+            self._transactions[channel_id] = []
 
         frame_out = commands.Tx.SelectOk()
         return await self._send_frame(channel_id, frame_out)
 
     async def _handle_tx_commit(self, channel_id: int, frame_in: commands.Tx.Commit) -> None:
-        if self._transaction and self._on_publish:
-            for message in self._transaction:
+        transaction = self._transactions.get(channel_id)
+        if transaction and self._on_publish:
+            for message in transaction:
                 await self._on_publish(message)
 
         frame_out = commands.Tx.CommitOk()
         return await self._send_frame(channel_id, frame_out)
 
     async def _handle_rollback(self, channel_id: int, frame_in: commands.Tx.Rollback) -> None:
-        if self._transaction:
-            self._transaction.clear()
+        transaction = self._transactions.get(channel_id)
+        if transaction:
+            transaction.clear()
 
         frame_out = commands.Tx.RollbackOk()
         return await self._send_frame(channel_id, frame_out)
