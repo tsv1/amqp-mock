@@ -239,8 +239,8 @@ class AmqpConnection:
         self._stream_writer.close()
         await self._stream_writer.wait_closed()
 
-    async def _handle_channel_close(self, channel_id: int,
-                                     frame_in: commands.Channel.Close) -> None:
+    async def _handle_channel_close(self, channel_id: int, 
+                                    frame_in: commands.Channel.Close) -> None:
         if channel_id in self._transactions:
             del self._transactions[channel_id]
 
