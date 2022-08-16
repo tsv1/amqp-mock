@@ -1,10 +1,10 @@
 import pytest
 
-from amqp_mock import Message, AmqpMockClient
+from amqp_mock import AmqpMockClient
 
 from ._test_utils.amqp_client import AmqpClient
 from ._test_utils.fixtures import amqp_client, mock_client, mock_server
-from ._test_utils.helpers import random_uuid, to_binary
+from ._test_utils.helpers import to_binary
 from ._test_utils.steps import given, then, when
 
 __all__ = ("mock_client", "mock_server", "amqp_client",)
