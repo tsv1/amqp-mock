@@ -316,9 +316,12 @@ class AmqpConnection:
 
     async def _handle_tx_commit(self, channel_id: int, frame_in: commands.Tx.Commit) -> None:
         transaction = self._transactions.get(channel_id)
-        if transaction and self._on_publish:
-            for message in transaction:
-                await self._on_publish(message)
+        if transaction:
+            if self._on_publish:
+                for message in transaction:
+                    await self._on_publish(message)
+            transaction.clear()
+            
 
         frame_out = commands.Tx.CommitOk()
         return await self._send_frame(channel_id, frame_out)
