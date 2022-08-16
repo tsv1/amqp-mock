@@ -47,7 +47,7 @@ async def test_rolled_back_transaction_messages_are_not_in_storage(
 
 
 @pytest.mark.asyncio
-async def test_committed_transaction_messages_are_not_in_storage(
+async def test_committed_transaction_messages_are_in_storage(
         *, mock_server, mock_client: AmqpMockClient, amqp_client: AmqpClient):
     with given:
         exchange = "test_exchange"
