@@ -45,7 +45,6 @@ async def test_rolled_back_transaction_messages_are_not_in_storage(
         assert len(messages) == 0
 
 
-
 @pytest.mark.asyncio
 async def test_committed_transaction_messages_are_in_storage(
         *, mock_server, mock_client: AmqpMockClient, amqp_client: AmqpClient):
