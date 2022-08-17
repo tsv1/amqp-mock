@@ -133,7 +133,10 @@ class AmqpConnection:
             )
             await self._send_frame(channel_id, frame_out)
 
-            encoded = json.dumps(message.value).encode()
+            if isinstance(message.value, bytes):
+                encoded = message.value
+            else:
+                encoded = json.dumps(message.value).encode()
             properties = commands.Basic.Properties(**(message.properties or {}))
             header = ContentHeader(body_size=len(encoded), properties=properties)
             body = ContentBody(encoded)
