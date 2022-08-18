@@ -21,7 +21,7 @@ async def test_pending_transaction_messages_are_not_in_storage(
         await amqp_client.transaction_select()
         await amqp_client.publish(to_binary(message1), exchange)
         await amqp_client.publish(to_binary(message2), exchange)
-        
+
     with then:
         messages = await mock_client.get_exchange_messages(exchange)
         assert len(messages) == 0
@@ -39,7 +39,7 @@ async def test_rolled_back_transaction_messages_are_not_in_storage(
         await amqp_client.publish(to_binary(message1), exchange)
         await amqp_client.publish(to_binary(message2), exchange)
         await amqp_client.transaction_rollback()
-        
+
     with then:
         messages = await mock_client.get_exchange_messages(exchange)
         assert len(messages) == 0
@@ -57,7 +57,7 @@ async def test_committed_transaction_messages_are_in_storage(
         await amqp_client.publish(to_binary(message1), exchange)
         await amqp_client.publish(to_binary(message2), exchange)
         await amqp_client.transaction_commit()
-        
+
     with then:
         messages = await mock_client.get_exchange_messages(exchange)
         assert len(messages) == 2

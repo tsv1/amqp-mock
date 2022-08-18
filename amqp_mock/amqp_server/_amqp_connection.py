@@ -239,7 +239,7 @@ class AmqpConnection:
         self._stream_writer.close()
         await self._stream_writer.wait_closed()
 
-    async def _handle_channel_close(self, channel_id: int, 
+    async def _handle_channel_close(self, channel_id: int,
                                     frame_in: commands.Channel.Close) -> None:
         if channel_id in self._transactions:
             del self._transactions[channel_id]
@@ -321,7 +321,6 @@ class AmqpConnection:
                 for message in transaction:
                     await self._on_publish(message)
             transaction.clear()
-            
 
         frame_out = commands.Tx.CommitOk()
         return await self._send_frame(channel_id, frame_out)

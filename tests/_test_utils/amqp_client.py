@@ -46,15 +46,15 @@ class AmqpClient:
         res = await self._channel.basic_publish(message, exchange=exchange_name,
                                                 routing_key=routing_key)
         assert isinstance(res, commands.Basic.Ack)
-        
+
     async def transaction_select(self) -> None:
         res = await self._channel.tx_select()
         assert isinstance(res, commands.Tx.SelectOk)
-    
+
     async def transaction_commit(self) -> None:
         res = await self._channel.tx_commit()
         assert isinstance(res, commands.Tx.CommitOk)
-    
+
     async def transaction_rollback(self) -> None:
         res = await self._channel.tx_rollback()
         assert isinstance(res, commands.Tx.RollbackOk)
