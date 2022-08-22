@@ -38,7 +38,7 @@ class AmqpConnection:
         self._on_publish: Optional[Callable[[Message], Awaitable[None]]] = None
         self._on_ack: Optional[Callable[[str], Awaitable[None]]] = None
         self._on_nack: Optional[Callable[[str], Awaitable[None]]] = None
-        self._on_close: Optional[Callable[['AmqpConnection'], Awaitable[None]]] = None
+        self._closing: bool = False
 
     def on_bind(self, callback: Callable[[str, str, str], Awaitable[None]]) -> 'AmqpConnection':
         self._on_bind = callback
@@ -60,11 +60,6 @@ class AmqpConnection:
         self._on_nack = callback
         return self
 
-    def on_close(self,
-                 callback: Callable[['AmqpConnection'], Awaitable[None]]) -> 'AmqpConnection':
-        self._on_close = callback
-        return self
-
     def _get_delivery_tag(self) -> int:
         self._delivery_tag += 1
         return self._delivery_tag
@@ -72,7 +67,7 @@ class AmqpConnection:
     async def _cancel_consumer(self, channel_id: int, consumer_tag: str) -> None:
         consumer_key = (channel_id, consumer_tag)
         try:
-            consumer_task = self._consumers[consumer_key]
+            consumer_task = self._consumers.pop(consumer_key)
         except KeyError:
             return
 
@@ -83,21 +78,27 @@ class AmqpConnection:
         except CancelledError:
             pass
 
-        del self._consumers[consumer_key]
-
     async def close(self) -> None:
+        self._closing = True
+
         tasks = [self._cancel_consumer(channel_id, consumer_tag)
                  for channel_id, consumer_tag in self._consumers]
         await gather(*tasks, return_exceptions=True)
 
+        self._reader.cancel()
         self._stream_writer.close()
         await self._stream_writer.wait_closed()
 
-        self._stream_reader.feed_eof()
-        await self._reader
+    async def run_until_closed(self) -> None:
+        try:
+            await self._reader
+        except CancelledError:
+            pass
+        except Exception as e:
+            _logger.error(f'* Connection closed due to error: {e}')
 
-        if self._on_close:
-            await self._on_close(self)
+        if not self._closing:
+            await self.close()
 
     async def _reader_task(self, reader: StreamReader) -> None:
         buffer = b""
