@@ -1,6 +1,7 @@
 import json
 import logging
 from asyncio import CancelledError, Task, create_task, gather
+from asyncio import sleep
 from asyncio.streams import StreamReader, StreamWriter
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Tuple, Union
 
@@ -23,7 +24,7 @@ AnyFrame = Union[base.Frame, ContentHeader, ContentBody, ProtocolHeader, Heartbe
 class AmqpConnection:
     def __init__(self, reader: StreamReader, writer: StreamWriter,
                  on_consume: Callable[[str], AsyncGenerator[Message, None]],
-                 server_properties: Dict[str, Any]) -> None:
+                 server_properties: Dict[str, Any], heartbeat_interval: int = 0) -> None:
         self._stream_reader = reader
         self._stream_writer = writer
         self._server_properties = server_properties
@@ -39,6 +40,8 @@ class AmqpConnection:
         self._on_ack: Optional[Callable[[str], Awaitable[None]]] = None
         self._on_nack: Optional[Callable[[str], Awaitable[None]]] = None
         self._on_close: Optional[Callable[['AmqpConnection'], Awaitable[None]]] = None
+        self._heartbeat_interval: int = heartbeat_interval
+        self._heartbeat_task: Optional[Task] = None
 
     def on_bind(self, callback: Callable[[str, str, str], Awaitable[None]]) -> 'AmqpConnection':
         self._on_bind = callback
@@ -88,6 +91,7 @@ class AmqpConnection:
     async def close(self) -> None:
         tasks = [self._cancel_consumer(channel_id, consumer_tag)
                  for channel_id, consumer_tag in self._consumers]
+        self._heartbeat_task.cancel()
         await gather(*tasks, return_exceptions=True)
 
         self._stream_writer.close()
@@ -141,8 +145,9 @@ class AmqpConnection:
             await self._send_frame(channel_id, body)
 
     async def dispatch_frame(self, frame: AnyFrame, channel_id: int) -> Any:
+        _logger.debug(f"-> Dispatching frame: {frame}")
         handlers: Dict[str, Callable[[int, Any], Any]] = {
-            Heartbeat.name: self._do_nothing,
+            Heartbeat.name: self._send_heartbeat,
             ProtocolHeader.name: self._send_connection_start,
             ContentHeader.name: self._handle_content_header,
             ContentBody.name: self._handle_content_body,
@@ -174,7 +179,7 @@ class AmqpConnection:
         await self._stream_writer.drain()
 
     async def _do_nothing(self, channel_id: int, frame_in: AnyFrame) -> None:
-        _logger.debug("-> DoNothing")
+        _logger.debug(f"-> DoNothing with {frame_in} on {channel_id}")
 
     async def _send_connection_start(self, channel_id: int, frame_in: base.Frame) -> None:
         frame_out = commands.Connection.Start(
@@ -188,13 +193,29 @@ class AmqpConnection:
 
     async def _send_connection_tune(self, channel_id: int,
                                     frame_in: commands.Connection.StartOk) -> None:
-        frame_out = commands.Connection.Tune(channel_max=0, frame_max=0, heartbeat=0)
+        frame_out = commands.Connection.Tune(channel_max=0, frame_max=0, heartbeat=self._heartbeat_interval)
         return await self._send_frame(channel_id, frame_out)
+
+    async def _send_heartbeat(self, channel_id: int, frame_in: AnyFrame) -> None:
+        frame_out = Heartbeat()
+        await self._send_frame(channel_id, frame_out)
+        _logger.debug(f"-> Send heartbeat in response with {frame_in} on {channel_id}")
+
+    async def _send_heartbeats_periodically(self, channel_id: int, frame_in: AnyFrame) -> None:
+        while True:
+            assert self._heartbeat_interval != 0, 'Somehow heartbeat_interval == 0 but we try to send heartbeats'
+            await sleep(self._heartbeat_interval/2)
+            await self._send_heartbeat(channel_id, frame_in)
+            _logger.debug(f"-- Heartbeat task rescheduled for {self._heartbeat_interval}")
 
     async def _send_connection_open_ok(self, channel_id: int,
                                        frame_in: commands.Connection.Open) -> None:
         frame_out = commands.Connection.OpenOk()
         await self._send_frame(channel_id, frame_out)
+        if self._heartbeat_interval:
+            self._heartbeat_task = create_task(
+                self._send_heartbeats_periodically(channel_id, frame_in)
+            )
 
     async def _send_channel_open_ok(self, channel_id: int,
                                     frame_in: commands.Channel.Open) -> None:

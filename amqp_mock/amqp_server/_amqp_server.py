@@ -11,7 +11,8 @@ __all__ = ("AmqpServer",)
 
 class AmqpServer:
     def __init__(self, storage: Storage, host: str = "0.0.0.0", port: Optional[int] = None,
-                 server_properties: Optional[Dict[str, Any]] = None) -> None:
+                 server_properties: Optional[Dict[str, Any]] = None,
+                 heartbeat_interval: int = 0) -> None:
         self._storage = storage
         self._host = host
         self._port = port
@@ -35,6 +36,7 @@ class AmqpServer:
             "version": "<version>",
         }
         self._connections: List[AmqpConnection] = []
+        self._heartbeat_interval = heartbeat_interval
 
     @property
     def host(self) -> str:
@@ -76,7 +78,8 @@ class AmqpServer:
         self._connections.remove(connection)
 
     def __call__(self, reader: StreamReader, writer: StreamWriter) -> AmqpConnection:
-        connection = AmqpConnection(reader, writer, self._on_consume, self._server_properties)
+        connection = AmqpConnection(reader, writer, self._on_consume, self._server_properties,
+                                    heartbeat_interval=self._heartbeat_interval)
         connection.on_publish(self._on_publish) \
                   .on_bind(self._on_bind) \
                   .on_declare_queue(self._on_declare_queue) \
