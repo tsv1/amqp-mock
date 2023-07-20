@@ -4,9 +4,11 @@ from asyncio import CancelledError, Task, create_task, gather
 from asyncio import sleep
 from asyncio.streams import StreamReader, StreamWriter
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Tuple, Union
+from uuid import uuid4
 
 from pamqp import base, commands
 from pamqp.body import ContentBody
+from pamqp.constants import FRAME_END
 from pamqp.exceptions import UnmarshalingException
 from pamqp.frame import marshal, unmarshal
 from pamqp.header import ContentHeader, ProtocolHeader
@@ -91,7 +93,6 @@ class AmqpConnection:
     async def close(self) -> None:
         tasks = [self._cancel_consumer(channel_id, consumer_tag)
                  for channel_id, consumer_tag in self._consumers]
-        self._heartbeat_task.cancel()
         await gather(*tasks, return_exceptions=True)
 
         self._stream_writer.close()
@@ -104,20 +105,27 @@ class AmqpConnection:
             await self._on_close(self)
 
     async def _reader_task(self, reader: StreamReader) -> None:
+        id = str(uuid4())[:5]
         buffer = b""
         while not reader.at_eof():
             chunk = await reader.read(1)
+            # _logger.debug(f"<- incoming chunk {chunk}")
             if not chunk:
                 break
             buffer += chunk
             try:
+                _logger.debug(f"-- {id} try to unmarshal {buffer}")
                 byte_count, channel_id, frame = unmarshal(buffer)
+                if frame.name == Heartbeat.name and chunk[-1] != FRAME_END:
+                    continue
             except UnmarshalingException:
+                _logger.debug(f"-- {id} can't unmarshal")
                 continue
             else:
+                _logger.debug(f"-- {id} flushing buffer {buffer}")
                 buffer = b""
 
-            _logger.debug(f"<- {frame.name} {channel_id}")
+            _logger.debug(f"<- {id} {frame.name} {channel_id}")
             await self.dispatch_frame(frame, channel_id)
 
     async def _consumer_task(self, queue_name: str, consumer_tag: str, channel_id: int) -> None:
@@ -212,7 +220,7 @@ class AmqpConnection:
                                        frame_in: commands.Connection.Open) -> None:
         frame_out = commands.Connection.OpenOk()
         await self._send_frame(channel_id, frame_out)
-        if self._heartbeat_interval:
+        if self._heartbeat_interval and self._heartbeat_task is None:
             self._heartbeat_task = create_task(
                 self._send_heartbeats_periodically(channel_id, frame_in)
             )
@@ -250,6 +258,8 @@ class AmqpConnection:
 
     async def _send_connection_close_ok(self, channel_id: int,
                                         frame_in: commands.Connection.Close) -> None:
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
         frame_out = commands.Connection.CloseOk()
         await self._send_frame(channel_id, frame_out)
 
@@ -281,11 +291,13 @@ class AmqpConnection:
         self._incoming_message = Message(None,
                                          exchange=frame_in.exchange,
                                          routing_key=frame_in.routing_key)
+        _logger.debug(f"-- handled publish with {self._incoming_message}")
         return await self._do_nothing(channel_id, frame_in)
 
     async def _handle_content_header(self, channel_id: int, frame_in: ContentHeader) -> None:
         if self._incoming_message:
             self._incoming_message.properties = dict(frame_in.properties)
+        _logger.debug(f"-- handled content header with {self._incoming_message}")
         return await self._do_nothing(channel_id, frame_in)
 
     async def _handle_content_body(self, channel_id: int, frame_in: ContentBody) -> None:
@@ -295,6 +307,7 @@ class AmqpConnection:
                 await self._on_publish(self._incoming_message)
             self._incoming_message = None
 
+        _logger.debug(f"-- handled content body with {self._incoming_message}")
         frame_out = commands.Basic.Ack(delivery_tag=self._get_delivery_tag(), multiple=False)
         await self._send_frame(channel_id, frame_out)
 
@@ -305,6 +318,7 @@ class AmqpConnection:
 
         consumer = create_task(
             self._consumer_task(frame_in.queue, consumer_tag, channel_id))
+        _logger.debug(f"-- handled consume with {frame_in}")
         self._consumers[channel_id, consumer_tag] = consumer
 
     async def _handle_ack(self, channel_id: int, frame_in: commands.Basic.Ack) -> None:

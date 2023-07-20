@@ -3,7 +3,9 @@ from collections import OrderedDict, defaultdict
 from typing import AsyncGenerator, DefaultDict, Dict, List
 
 from ._message import Message, MessageStatus, QueuedMessage
+import logging
 
+_logger = logging.getLogger("storage")
 
 class Storage:
     def __init__(self) -> None:
@@ -17,6 +19,7 @@ class Storage:
         self._queues = {}
         self._history = OrderedDict()
         self._binds = defaultdict(dict)
+        _logger.debug(f"-- cleaned up")
 
     async def add_message_to_exchange(self, exchange: str, message: Message) -> None:
         if exchange not in self._exchanges:
@@ -29,15 +32,19 @@ class Storage:
         if binds and routing_key in binds:
             await self.add_message_to_queue(binds[routing_key], message)
 
+        _logger.debug(f"++ added message into exchange {exchange}, {message}")
+
     async def bind_queue_to_exchange(self, queue: str, exchange: str,
                                      routing_key: str = "") -> None:
         self._binds[exchange][routing_key] = queue
+        _logger.debug(f"++ binded queue {queue} to exchange {exchange} on routing {routing_key}")
 
     async def declare_queue(self, queue: str) -> None:
         if queue not in self._queues:
             self._queues[queue] = Queue()
 
         await self.bind_queue_to_exchange(queue, "", routing_key=queue)
+        _logger.debug(f"++ queue {queue} declared")
 
     async def get_messages_from_exchange(self, exchange: str) -> List[Message]:
         if exchange not in self._exchanges:
@@ -52,6 +59,7 @@ class Storage:
         await self.declare_queue(queue)
         await self._queues[queue].put(message)
         self._history[message.id] = QueuedMessage(message, queue)
+        _logger.debug(f"++ added message into queue: {queue}, {message}")
 
     async def get_history(self) -> List[QueuedMessage]:
         return [message for message in self._history.values()][::-1]
