@@ -28,4 +28,4 @@ class AmqpSite(BaseSite):
 
     @property
     def name(self) -> str:
-        return "ampq://{host}:{port}".format(host=self._host, port=self._port)
+        return "amqp://{host}:{port}".format(host=self._host, port=self._port)
