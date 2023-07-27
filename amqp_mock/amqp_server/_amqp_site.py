@@ -26,5 +26,6 @@ class AmqpSite(BaseSite):
         if self._server.sockets is not None and len(self._server.sockets) > 0:
             self._port = self._server.sockets[0].getsockname()[1]
 
+    @property
     def name(self) -> str:
         return "ampq://{host}:{port}".format(host=self._host, port=self._port)
