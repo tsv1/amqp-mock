@@ -155,7 +155,7 @@ class AmqpConnection:
 
     async def dispatch_frame(self, frame: AnyFrame, channel_id: int) -> Any:
         handlers: Dict[str, Callable[[int, Any], Any]] = {
-            Heartbeat.name: self._do_nothing,
+            Heartbeat.name: self._send_heartbeat,
             ProtocolHeader.name: self._send_connection_start,
             ContentHeader.name: self._handle_content_header,
             ContentBody.name: self._handle_content_body,
@@ -187,7 +187,7 @@ class AmqpConnection:
         await self._stream_writer.drain()
 
     async def _do_nothing(self, channel_id: int, frame_in: AnyFrame) -> None:
-        _logger.debug("-> DoNothing")
+        _logger.debug(f"-> DoNothing with {frame_in} on {channel_id}")
 
     async def _send_connection_start(self, channel_id: int, frame_in: base.Frame) -> None:
         frame_out = commands.Connection.Start(
@@ -203,6 +203,11 @@ class AmqpConnection:
                                     frame_in: commands.Connection.StartOk) -> None:
         frame_out = commands.Connection.Tune(channel_max=0, frame_max=0, heartbeat=0)
         return await self._send_frame(channel_id, frame_out)
+
+    async def _send_heartbeat(self, channel_id: int, frame_in: AnyFrame) -> None:
+        frame_out = Heartbeat()
+        await self._send_frame(channel_id, frame_out)
+        _logger.debug(f"-> Send heartbeat in response with {frame_in} on {channel_id}")
 
     async def _send_connection_open_ok(self, channel_id: int,
                                        frame_in: commands.Connection.Open) -> None:
