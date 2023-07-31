@@ -8,8 +8,7 @@ from pamqp import base, commands
 from pamqp.body import ContentBody
 from pamqp.constants import FRAME_END
 from pamqp.exceptions import UnmarshalingException
-from pamqp.frame import FrameTypes
-from pamqp.frame import marshal, unmarshal
+from pamqp.frame import FrameTypes, marshal, unmarshal
 from pamqp.header import ContentHeader, ProtocolHeader
 from pamqp.heartbeat import Heartbeat
 
