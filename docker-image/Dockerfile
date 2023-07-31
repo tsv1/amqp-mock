@@ -1,5 +1,5 @@
 FROM python:3.10
-LABEL source="https://github.com/nikitanovosibirsk/amqp-mock"
+LABEL source="https://github.com/tsv1/amqp-mock"
 
 ENV WORK_DIR /amqp_mock
 WORKDIR $WORK_DIR

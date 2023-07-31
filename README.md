@@ -1,6 +1,6 @@
 # AMQP Mock
 
-[![Codecov](https://img.shields.io/codecov/c/github/nikitanovosibirsk/amqp-mock/master.svg?style=flat-square)](https://codecov.io/gh/nikitanovosibirsk/amqp-mock)
+[![Codecov](https://img.shields.io/codecov/c/github/tsv1/amqp-mock/master.svg?style=flat-square)](https://codecov.io/gh/tsv1/amqp-mock)
 [![PyPI](https://img.shields.io/pypi/v/amqp-mock.svg?style=flat-square)](https://pypi.python.org/pypi/amqp-mock)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/amqp-mock?style=flat-square)](https://pypi.python.org/pypi/amqp-mock)
 [![Python Version](https://img.shields.io/pypi/pyversions/amqp-mock.svg?style=flat-square)](https://pypi.python.org/pypi/amqp-mock)
@@ -40,7 +40,7 @@ async with create_amqp_mock() as mock:
     assert messages[0].value == [1, 2, 3]
 ```
 
-Full code available here: [`./examples/publish_example.py`](https://github.com/nikitanovosibirsk/amqp-mock/blob/master/examples/publish_example.py)
+Full code available here: [`./examples/publish_example.py`](https://github.com/tsv1/amqp-mock/blob/master/examples/publish_example.py)
 
 ### Test Consuming
 
@@ -60,7 +60,7 @@ async with create_amqp_mock() as mock:
     assert history[0].status == MessageStatus.ACKED
 ```
 
-Full code available here: [`./examples/consume_example.py`](https://github.com/nikitanovosibirsk/amqp-mock/blob/master/examples/consume_example.py)
+Full code available here: [`./examples/consume_example.py`](https://github.com/tsv1/amqp-mock/blob/master/examples/consume_example.py)
 
 ## Mock Server
 
@@ -85,7 +85,7 @@ asyncio.run(run())
 or via docker
 
 ```shell
-docker run -p 8080:80 -p 5672:5672 nikitanovosibirsk/amqp-mock
+docker run -p 8080:80 -p 5672:5672 tsv1/amqp-mock
 ```
 
 ### Publish message
