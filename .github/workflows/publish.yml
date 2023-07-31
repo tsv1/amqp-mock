@@ -48,7 +48,7 @@ jobs:
     - name: Build and Push
       uses: docker/build-push-action@v3
       with:
-        context: .
+        context: ./docker-image
         push: true
         tags: tsv1/amqp-mock:latest,tsv1/amqp-mock:${{ env.RELEASE_VERSION }}
         platforms: linux/amd64,linux/arm64,linux/arm/v7
