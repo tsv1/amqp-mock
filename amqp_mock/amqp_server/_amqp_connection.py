@@ -6,8 +6,9 @@ from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Tup
 
 from pamqp import base, commands
 from pamqp.body import ContentBody
+from pamqp.constants import FRAME_END
 from pamqp.exceptions import UnmarshalingException
-from pamqp.frame import marshal, unmarshal
+from pamqp.frame import FrameTypes, marshal, unmarshal
 from pamqp.header import ContentHeader, ProtocolHeader
 from pamqp.heartbeat import Heartbeat
 
@@ -99,6 +100,17 @@ class AmqpConnection:
         if self._on_close:
             await self._on_close(self)
 
+    async def _unmarshal(self, buffer: bytes) -> Tuple[int, int, FrameTypes]:
+        # Workaround for pamqp bug:
+        #   Heartbeat can be unmarshaled successfully even without FRAME_END.
+        #   this shouldn't happen according to spec
+
+        byte_count, channel_id, frame = unmarshal(buffer)
+        if frame.name == Heartbeat.name and buffer[-1] != FRAME_END:
+            raise UnmarshalingException()
+
+        return byte_count, channel_id, frame
+
     async def _reader_task(self, reader: StreamReader) -> None:
         buffer = b""
         while not reader.at_eof():
@@ -107,7 +119,7 @@ class AmqpConnection:
                 break
             buffer += chunk
             try:
-                byte_count, channel_id, frame = unmarshal(buffer)
+                byte_count, channel_id, frame = await self._unmarshal(buffer)
             except UnmarshalingException:
                 continue
             else:
@@ -142,7 +154,7 @@ class AmqpConnection:
 
     async def dispatch_frame(self, frame: AnyFrame, channel_id: int) -> Any:
         handlers: Dict[str, Callable[[int, Any], Any]] = {
-            Heartbeat.name: self._do_nothing,
+            Heartbeat.name: self._send_heartbeat,
             ProtocolHeader.name: self._send_connection_start,
             ContentHeader.name: self._handle_content_header,
             ContentBody.name: self._handle_content_body,
@@ -174,7 +186,7 @@ class AmqpConnection:
         await self._stream_writer.drain()
 
     async def _do_nothing(self, channel_id: int, frame_in: AnyFrame) -> None:
-        _logger.debug("-> DoNothing")
+        _logger.debug(f"-> DoNothing with {frame_in} on {channel_id}")
 
     async def _send_connection_start(self, channel_id: int, frame_in: base.Frame) -> None:
         frame_out = commands.Connection.Start(
@@ -190,6 +202,11 @@ class AmqpConnection:
                                     frame_in: commands.Connection.StartOk) -> None:
         frame_out = commands.Connection.Tune(channel_max=0, frame_max=0, heartbeat=0)
         return await self._send_frame(channel_id, frame_out)
+
+    async def _send_heartbeat(self, channel_id: int, frame_in: AnyFrame) -> None:
+        frame_out = Heartbeat()
+        await self._send_frame(channel_id, frame_out)
+        _logger.debug(f"-> Send heartbeat in response with {frame_in} on {channel_id}")
 
     async def _send_connection_open_ok(self, channel_id: int,
                                        frame_in: commands.Connection.Open) -> None:
