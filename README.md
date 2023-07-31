@@ -85,7 +85,7 @@ asyncio.run(run())
 or via docker
 
 ```shell
-docker run -p 8080:80 -p 5672:5672 nikitanovosibirsk/amqp-mock
+docker run -p 8080:80 -p 5672:5672 tsv1/amqp-mock
 ```
 
 ### Publish message
