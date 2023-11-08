@@ -116,13 +116,14 @@ async def test_routing_fanout_exchange(*, mock_server, mock_client, amqp_client)
         exchange = "test_exchange"
         queue1, queue2 = "test_queue1", "test_queue2"
         message = {"id": random_uuid()}
+        routing_key = random_uuid()
 
         await amqp_client.declare_exchange(exchange, "fanout")
         for queue in [queue1, queue2]:
             await amqp_client.queue_bind(queue, exchange, routing_key=queue)
 
     with when:
-        await amqp_client.publish(to_binary(message), exchange)
+        await amqp_client.publish(to_binary(message), exchange, routing_key=routing_key)
 
     with then:
         history_queue1 = await mock_client.get_queue_message_history(queue1)
@@ -131,7 +132,7 @@ async def test_routing_fanout_exchange(*, mock_server, mock_client, amqp_client)
                 "message": {
                     "value": message,
                     "exchange": exchange,
-                    "routing_key": queue1,
+                    "routing_key": routing_key,
                 },
                 "queue": queue1,
                 "status": MessageStatus.INIT,
@@ -144,7 +145,7 @@ async def test_routing_fanout_exchange(*, mock_server, mock_client, amqp_client)
                 "message": {
                     "value": message,
                     "exchange": exchange,
-                    "routing_key": queue2,
+                    "routing_key": routing_key,
                 },
                 "queue": queue2,
                 "status": MessageStatus.INIT,
