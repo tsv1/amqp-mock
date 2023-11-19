@@ -13,7 +13,7 @@ def find_dev_required():
 
 setup(
     name="amqp-mock",
-    version="0.5.1",
+    version="0.6.0",
     description="Remote AMQP mock",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
