@@ -124,13 +124,13 @@ async def test_publish_to_fanout_exchange(*, mock_server, amqp_client):
         queue1, queue2 = "test_queue1", "test_queue2"
         message = {"value": "text"}
 
-    with when:
         await amqp_client.declare_exchange(exchange, "fanout")
 
         for queue in [queue1, queue2]:
             await amqp_client.queue_bind(queue, exchange, routing_key=queue)
             await amqp_client.consume(queue)
 
+    with when:
         await amqp_client.publish(to_binary(message), exchange)
 
     with then:

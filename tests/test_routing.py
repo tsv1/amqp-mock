@@ -110,7 +110,6 @@ async def test_routing_with_bound_queue(*, mock_server, mock_client, amqp_client
 
 
 @pytest.mark.asyncio
-@pytest.mark.only
 async def test_routing_fanout_exchange(*, mock_server, mock_client, amqp_client):
     with given:
         exchange = "test_exchange"
