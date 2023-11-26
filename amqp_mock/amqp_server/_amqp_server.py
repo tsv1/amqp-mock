@@ -61,7 +61,7 @@ class AmqpServer:
         try:
             message.value = json.loads(message.value.decode())
         except (TypeError, ValueError):
-            message.value = str(message.value)
+            pass
         await self._storage.add_message_to_exchange(message.exchange, message)
 
     async def _on_consume(self, queue_name: str) -> AsyncGenerator[Message, None]:

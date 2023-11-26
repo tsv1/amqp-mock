@@ -29,7 +29,7 @@ class Message:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
-            "value": self.value,
+            "value": str(self.value) if isinstance(self.value, bytes) else self.value,
             "exchange": self.exchange,
             "routing_key": self.routing_key,
             "properties": self.properties,
