@@ -1,4 +1,5 @@
 import json
+from asyncio import gather
 from asyncio.streams import StreamReader, StreamWriter
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -75,24 +76,21 @@ class AmqpServer:
     async def _on_nack(self, message_id: str) -> None:
         await self._storage.change_message_status(message_id, MessageStatus.NACKED)
 
-    async def _on_close(self, connection: AmqpConnection) -> None:
-        self._connections.remove(connection)
-
-    def __call__(self, reader: StreamReader, writer: StreamWriter) -> AmqpConnection:
+    async def __call__(self, reader: StreamReader, writer: StreamWriter) -> None:
         connection = AmqpConnection(reader, writer, self._on_consume, self._server_properties)
         connection.on_publish(self._on_publish) \
                   .on_bind(self._on_bind) \
                   .on_declare_exchange(self._on_declare_exchange) \
                   .on_declare_queue(self._on_declare_queue) \
                   .on_ack(self._on_ack) \
-                  .on_nack(self._on_nack) \
-                  .on_close(self._on_close)
-        self._connections += [connection]
-        return connection
+                  .on_nack(self._on_nack)
+        self._connections.append(connection)
+        await connection.run_until_closed()
+        self._connections.remove(connection)
 
     async def shutdown(self, timeout: float) -> None:
-        for connection in self._connections:
-            await connection.close()
+        tasks = [connection.close() for connection in self._connections]
+        await gather(*tasks, return_exceptions=True)
 
     def __repr__(self) -> str:
         cls_name = self.__class__.__name__
