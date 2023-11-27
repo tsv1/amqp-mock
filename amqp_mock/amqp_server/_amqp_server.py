@@ -90,7 +90,10 @@ class AmqpServer:
         self._connections += [connection]
         return connection
 
-    async def shutdown(self, timeout: float) -> None:
+    def pre_shutdown(self) -> None:
+        pass
+
+    async def shutdown(self, timeout: Optional[float] = None) -> None:
         for connection in self._connections:
             await connection.close()
 
