@@ -22,7 +22,7 @@ setup(
     python_requires=">=3.8.0",
     url="https://github.com/tsv1/amqp-mock",
     license="Apache-2.0",
-    packages=find_packages(exclude=("tests",)),
+    packages=find_packages(exclude=("tests*",)),
     package_data={"amqp_mock": ["py.typed"]},
     install_requires=find_required(),
     tests_require=find_dev_required(),
